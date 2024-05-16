@@ -27,19 +27,29 @@ Plug 'kietdo0602/vim-vault'
 ## Commands 
 
 ':Vaults' - Toggle menu that shows available Vaults.
+
 ':VaultSelect [number]' - Select Vault with number.
+
 ':VaultNext' - Go to the next Vault.
+
 ':VaultCreate' - Create new Vault Project with current folder as origin.
+
 ':VaultDelete' - Delete current Vault.
 
 ':VaultFiles' - Toggle menu that shows Files within selected Vault.
+
 ':VaultFileNext' - Go to the next File within selected Vault.
+
 ':VaultFileAdd' - Add current File to selected Vault.
+
 ':VaultFileRemove' - Remove current File from the Vault.
 
 ':VaultNotes' - Toggle menu that shows all Notes within that Vault.
+
 ':VaultNoteOpen' - Open Notes of current File.
+
 ':VaultNoteDelete' - Delete Note of current File.
+
 ':VaultNoteExport' - Export note to current Folder.
 
 
