@@ -4,12 +4,50 @@ local settings = require('settings')
 local services = require('services')
 local json_service = require('json')
 local ui = require('ui-services')
-local constant = require('constant.lua')
+local CONSTANT = require('constant')
 
 
 -- Show all vaults menu
 function open_vault_menu()
+	local old_win = api.nvim_get_current_win()
+	local cursor_pos = api.nvim_win_get_cursor(0)
+	local line_number = cursor_pos[1]
+	local column_number = cursor_pos[2]
+
+	local old_win_info = {
+		win = old_win,
+		line = line_number,
+		column = column_number,
+	}
+
+	local new = ui.create_new_window('All Vaults', old_win_info)
+	local win = new.window
+	local buf = new.buffer
+
+	local json_data = services.getVaultJSON("vaults")
+
+	if json_data == nil then
+		json_data = services.writeToEmptyJSONFile()
+		json_data = services.getVaultJSON("vaults")
+	end
+
+	local index = 0
+	for key, value in pairs(json_data) do
+		local vaultNumber = value["vaultNumber"]
+		local vaultPath = value["vaultPath"]
+		api.nvim_buf_set_lines(buf, index, -1, false, { vaultNumber .. "     " .. vaultPath })
+		index = index + 1
+	end
+
+	api.nvim_buf_set_option(buf, 'modifiable', false)
 end
+
+
+function create_vault_window()
+
+end
+
+
 
 function select_vault()
 end
@@ -51,3 +89,7 @@ function delete_note()
 end
 
 
+return {
+	create_vault_window=create_vault_window,
+	open_vault_menu=open_vault_menu,
+}

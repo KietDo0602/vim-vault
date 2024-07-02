@@ -7,7 +7,7 @@
 
 There are multiple Vaults (Project).
 
-Each Vaults contains multiple Files.
+Each Vault store multiple Files.
 
 You can add Files to each Vault. You can jump between Files within a Vault.
 
@@ -28,11 +28,9 @@ Plug 'kietdo0602/vim-vault'
 
 ':Vaults' - Toggle menu that shows available Vaults.
 
-':VaultSelect [number]' - Select Vault with number.
+':VaultEnter [number]' - Select Vault with number.
 
-':VaultNext' - Go to the next Vault.
-
-':VaultCreate' - Create new Vault Project with current folder as origin.
+':VaultCreate' - Create new Vault Project with current working directory (cwd) as origin.
 
 ':VaultDelete' - Delete current Vault.
 
@@ -50,7 +48,7 @@ Plug 'kietdo0602/vim-vault'
 
 ':VaultNoteDelete' - Delete Note of current File.
 
-':VaultNoteExport' - Export note to current Folder.
+':VaultNoteExport' - Export note to current cwd.
 
 
 

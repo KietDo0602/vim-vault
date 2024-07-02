@@ -1,0 +1,67 @@
+{
+	"vaults": [
+		{
+			"vaultNumber": 1,
+			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\react-project",
+			"files": [
+				{
+					"fileName": "README.md",
+					"marker": 123,
+					"isNav": true,
+					"isNote": true,
+					"notes": "# Hello, this is a project \n ## Set up"
+				},
+				{
+					"fileName": "package.json",
+					"isNav": true,
+					"isNote": false,
+					"marker": 137
+				},
+				{
+					"fileName": "\\components\\Navbar.js",
+					"isNav": true,
+					"isNote": false,
+					"marker": 29
+				}
+			]
+		},
+		{
+			"vaultNumber": 2,
+			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\vim-vault",
+			"files": [
+				{
+					"fileName": "vault.lua",
+					"isNav": true,
+					"isNote": false,
+					"marker": 137
+				},
+				{
+					"fileName": "\\constant\\init.lua",
+					"isNav": true,
+					"isNote": false,
+					"marker": 29
+				}
+			]
+		},
+		{
+			"vaultNumber": 3,
+			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\",
+			"files": [
+				{
+					"fileName": "Company.pdf",
+					"marker": 1,
+					"isNav": true,
+					"isNote": true,
+					"notes": "This is some additional note about the company pdf"
+				}
+			]
+		}
+
+	],
+	"settings": {
+		"enableNotes": true,
+		"displayFileNameOnly": true,
+		"enableEditFileNameDuringUse": true,
+		"createNewFileOnMissing": true
+	}
+}
