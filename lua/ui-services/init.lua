@@ -11,6 +11,9 @@ local CHAR_BR = '╯'
 
 
 function center(str, length, char)
+	-- Cast numbers to string
+	str = tostring(str)
+
     if #str >= length then
         return str
     else

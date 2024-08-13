@@ -7,7 +7,7 @@ if exists('g:loaded_vault') | finish | endif " prevent loading file twice
 let s:save_cpo = &cpo
 set cpo&vim
 
-hi VaultCursorLine ctermbg=238 cterm=none
+" hi VaultCursorLine ctermbg=238 cterm=none
 
 command! Vaults lua require'vault'.open_vault_menu()
 command! VaultEnter lua require'vault'.create_vault_window()
