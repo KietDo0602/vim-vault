@@ -9,16 +9,16 @@ set cpo&vim
 
 " hi VaultCursorLine ctermbg=238 cterm=none
 
-command! Vaults lua require'vault'.open_vault_menu()
+command! Vaults lua require'vault'.ShowVaultMenu()
 command! VaultEnter lua require'vault'.create_vault_window()
-" command! VaultCreate lua require'vault'.open_vault_menu()
-" command! VaultDelete lua require'vault'.open_vault_menu()
-" command! VaultFiles lua require'vault'.open_vault_menu()
-" command! VaultFileNext lua require'vault'.open_vault_menu()
-" command! VaultFileAdd lua require'vault'.open_vault_menu()
-" command! VaultFileRemove lua require'vault'.open_vault_menu()
-" command! VaultNotes lua require'vault'.open_vault_menu()
-" command! VaultNoteOpen lua require'vault'.open_vault_menu()
-" command! VaultNoteDelete lua require'vault'.open_vault_menu()
-" command! VaultNoteExport lua require'vault'.open_vault_menu()
+" command! VaultCreate lua require'vault'.ShowVaultMenu()
+" command! VaultDelete lua require'vault'.ShowVaultMenu()
+" command! VaultFiles lua require'vault'.ShowVaultMenu()
+" command! VaultFileNext lua require'vault'.ShowVaultMenu()
+" command! VaultFileAdd lua require'vault'.ShowVaultMenu()
+" command! VaultFileRemove lua require'vault'.ShowVaultMenu()
+" command! VaultNotes lua require'vault'.ShowVaultMenu()
+" command! VaultNoteOpen lua require'vault'.ShowVaultMenu()
+" command! VaultNoteDelete lua require'vault'.ShowVaultMenu()
+" command! VaultNoteExport lua require'vault'.ShowVaultMenu()
 

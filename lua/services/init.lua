@@ -1,52 +1,41 @@
-local api = vim.api
-local CONSTANT = require('../constant')
-local json_service = require('../json')
+local CONSTANT = require("../constant")
+local json = require("lib.dkjson")
 
--- Get JSON for Vault
--- type: ("vaults", "settings")
-function getVaultJSON(type)
-	local path = vim.fn.expand(CONSTANT.FILE_PATH)
-	local file = io.open(path, 'r')
+local M = {}
 
-	if file then
-		local content = file:read('*a')
+--- Writes { vaults = {} } to CONSTANT.FILE_PATH
+function M.WriteToEmptyJSONFile()
+  local data = { vaults = {} }
+  local encoded = json.encode(data, { indent = true })
 
-		local success, json = pcall(vim.json.decode, content)
+  -- Ensure directory exists
+  vim.fn.mkdir(vim.fn.fnamemodify(CONSTANT.FILE_PATH, ":h"), "p")
 
-		if success then
-			for key, value in pairs(json) do
-				if key == type then
-					return value
-				end
-			end
-			return json
-		end
-	end
-
-	return nil
+  local f = io.open(CONSTANT.FILE_PATH, "w")
+  if not f then
+    error("Could not open file for writing: " .. CONSTANT.FILE_PATH)
+  end
+  f:write(encoded)
+  f:close()
 end
 
+--- Reads and returns decoded JSON from CONSTANT.FILE_PATH
+--- @return table|nil Decoded JSON data or nil if file doesn't exist or is invalid
+function M.GetVaultJSON()
+  local f = io.open(CONSTANT.FILE_PATH, "r")
+  if not f then
+    return nil  -- File doesn't exist
+  end
 
--- Write to file if either there is no json file or it is empty.
-function writeToEmptyJSONFile()
-	local res = {
-		paths = {},
-		settings = CONSTANT.DEFAULT_SETTING
-	}
+  local content = f:read("*a")
+  f:close()
 
-	local path = vim.fn.expand(CONSTANT.FILE_PATH)
-	local write_file = io.open(path, 'w')
-	local json_str = vim.json.encode(res)
-	if json_str ~= nil then
-		json_str = json_service.format_json(json_str)
-	end
-	write_file:write(json_str)
-	write_file:close()
+  local data, _, err = json.decode(content, 1, nil)
+  if not data then
+    error("Failed to decode JSON: " .. tostring(err))
+  end
 
-	return res
+  return data
 end
 
-return {
-	writeToEmptyJSONFile=writeToEmptyJSONFile,
-	getVaultJSON=getVaultJSON
-}
+return M

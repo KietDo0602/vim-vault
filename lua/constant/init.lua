@@ -8,6 +8,7 @@ PROJECT_NAME = "Vim-Vault"
 -- File Paths
 FILE_NAME = "vim-vault.json"
 FILE_PATH = "~/" .. FILE_NAME
+SETTING_PATH = "~/vim-vault-settings.json"
 
 
 -- Message
@@ -29,7 +30,7 @@ MSG_EXPORT = "Exported notes as .txt file."
 
 
 -- Error Messages
-ERROR_MSG_FILE_NOT_FOUND = FILE_NAME .. " not found in users home directory (e.g. C:\\Users\\johnny\\" .. FILE_NAME .. ")"
+ERROR_MSG_FILE_NOT_FOUND = FILE_NAME .. " not found in users home directory (" .. FILE_PATH .. FILE_NAME .. ")"
 
 DEFAULT_SETTING = {
 	enableNotes = "true",
@@ -58,5 +59,5 @@ return {
 	MSG_EXPORT=MSG_EXPORT,
 	ERROR_MSG_FILE_NOT_FOUND=ERROR_MSG_FILE_NOT_FOUND,
 	ERROR_MSG_SETTING_NOT_FOUND=ERROR_MSG_SETTING_NOT_FOUND,
-	DEFAULT_SETTINGS,
+	DEFAULT_SETTINGS=DEFAULT_SETTING,
 }
