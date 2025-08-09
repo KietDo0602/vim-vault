@@ -11,6 +11,13 @@ M.current_sort_order = 0
 -- true: full path, false: last folder name only
 M.full_path_display_mode = true
 
+-- Module-level variables for the menu window and buffer, allowing external functions to close them
+local menu_win = nil
+local menu_buf = nil
+
+-- New module-level state to store available (vacated) vault numbers
+M.available_vault_numbers = {}
+
 -- Constants for menu layout
 local MENU_WIDTH = 80
 -- Define the number of lines for the fixed header and footer
@@ -47,7 +54,7 @@ local function format_path(path, max_width, full_display_mode)
         if last_component then
             display_path = last_component
         else
-            -- Fallback for cases like '/' or '' after cleaning
+            -- Fallback for cases like '/' or '' after cleaning (e.g., just "/")
             display_path = cleaned_path
         end
     end
@@ -112,6 +119,31 @@ local function sort_vaults(vaults_table, sort_order)
     end
 end
 
+-- Helper to save data to JSON file
+local function save_vault_data(vaults_data)
+    local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
+    local updated_data = {
+        vaults = vaults_data,
+        available_vault_numbers = M.available_vault_numbers -- Include available numbers
+    }
+    local json_string = json.encode(updated_data, {indent = true})
+
+    if json_string then
+        local file = io.open(json_file_path, "w")
+        if file then
+            file:write(json_string)
+            file:close()
+            return true
+        else
+            vim.notify("Error: Could not write to JSON file.", vim.log.levels.ERROR)
+            return false
+        end
+    else
+        vim.notify("Error: Could not encode JSON data.", vim.log.levels.ERROR)
+        return false
+    end
+end
+
 function M.ShowVaultMenu()
     -- Read and parse JSON file
     local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH) -- Expand to absolute path
@@ -121,27 +153,22 @@ function M.ShowVaultMenu()
     if not file then
         -- Initialize with empty vaults if file doesn't exist
         print("JSON file not found. Creating new vaults file...")
-        data = {vaults = {}}
-
+        data = {vaults = {}, available_vault_numbers = {}}
         -- Create the initial JSON file
-        local init_file = io.open(json_file_path, "w")
-        if init_file then
-            local json_string = json.encode(data, {indent = true})
-            init_file:write(json_string)
-            init_file:close()
-        else
+        if not save_vault_data(data.vaults) then
             print("Error: Could not create initial vaults file at: " .. json_file_path)
             return
         end
     else
         local content = file:read("*all")
         file:close()
-
         data = json.decode(content)
         if not data or not data.vaults then
-            print("Error: Invalid JSON format")
-            return
+            print("Error: Invalid JSON format. Initializing vaults.")
+            data = {vaults = {}, available_vault_numbers = {}}
         end
+        -- Load available_vault_numbers from file, or initialize if not present
+        M.available_vault_numbers = data.available_vault_numbers or {}
     end
 
     local vaults = data.vaults
@@ -154,8 +181,6 @@ function M.ShowVaultMenu()
     local current_scroll_top_line_idx = 0 -- 0-based line index of the first visible vault line in the scrollable area
     local all_vault_lines = {} -- Stores all formatted vault lines (full list)
     local vault_line_map = {} -- Maps vault_idx to {start_line_idx, end_line_idx} within all_vault_lines (0-based)
-    local menu_win = nil -- Reference to the Neovim window
-    local menu_buf = nil -- Reference to the Neovim buffer
     local highlight_ns_id = nil -- Namespace for highlights
 
     -- Function to generate all vault lines and their mappings
@@ -341,6 +366,8 @@ function M.ShowVaultMenu()
     local function refresh_menu()
         if menu_win and vim.api.nvim_win_is_valid(menu_win) then
             vim.api.nvim_win_close(menu_win, true)
+            menu_win = nil -- Clear reference after closing
+            menu_buf = nil -- Clear reference after closing
         end
         M.ShowVaultMenu() -- Re-call to re-initialize all state and redraw
     end
@@ -381,12 +408,25 @@ function M.ShowVaultMenu()
 
     -- Action handlers (modified to use refresh_menu for re-rendering)
     local function create_new_vault()
-        -- Get default path (current file's directory or project root)
-        local default_path = vim.fn.expand('%:p:h')
-        if default_path == "" or default_path == vim.fn.getcwd() then
-            default_path = vim.fn.getcwd()
+        -- Determine the new vault number
+        local new_vault_number
+        if #M.available_vault_numbers > 0 then
+            table.sort(M.available_vault_numbers) -- Ensure smallest number is at the front
+            new_vault_number = table.remove(M.available_vault_numbers, 1)
+        else
+            -- Find the current maximum vault number to assign a new sequential one
+            local max_vault_num = 0
+            for _, vault in ipairs(vaults) do
+                if vault.vaultNumber > max_vault_num then
+                    max_vault_num = vault.vaultNumber
+                end
+            end
+            new_vault_number = max_vault_num + 1
         end
 
+        -- Always set default_path to current working directory
+        local default_path = vim.fn.getcwd()
+        
         vim.ui.input({
             prompt = "Enter new vault path: ",
             default = default_path
@@ -395,26 +435,14 @@ function M.ShowVaultMenu()
                 local expanded_path = vim.fn.expand(path)
                 if vim.fn.isdirectory(expanded_path) == 1 then
                     local new_vault = {
-                        vaultNumber = #vaults + 1,
+                        vaultNumber = new_vault_number,
                         vaultPath = expanded_path,
                         lastUpdated = os.time()
                     }
                     table.insert(vaults, new_vault)
 
-                    local updated_data = {vaults = vaults}
-                    local json_string = json.encode(updated_data, {indent = true})
-
-                    if json_string then
-                        local file = io.open(json_file_path, "w")
-                        if file then
-                            file:write(json_string)
-                            file:close()
-                            refresh_menu() -- Refresh menu after saving
-                        else
-                            vim.notify("Error: Could not write to JSON file", vim.log.levels.ERROR)
-                        end
-                    else
-                        vim.notify("Error: Could not encode JSON data", vim.log.levels.ERROR)
+                    if save_vault_data(vaults) then
+                        refresh_menu() -- Refresh menu after saving
                     end
                 else
                     vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
@@ -425,7 +453,14 @@ function M.ShowVaultMenu()
 
     local function modify_vault_path()
         if #vaults == 0 then vim.notify("No vaults to modify.", vim.log.levels.INFO); return end
-        local vault_to_modify = vaults[current_selected_vault_idx]
+        local vault_to_modify = nil
+        for _, vault in ipairs(vaults) do
+            if vault_line_map[current_selected_vault_idx] and vault.vaultNumber == vaults[current_selected_vault_idx].vaultNumber then
+                vault_to_modify = vault
+                break
+            end
+        end
+
         if not vault_to_modify then return end -- Should not happen if #vaults > 0 and idx is valid
 
         local current_path = vault_to_modify.vaultPath
@@ -439,20 +474,8 @@ function M.ShowVaultMenu()
                     vault_to_modify.vaultPath = expanded_path
                     vault_to_modify.lastUpdated = os.time()
 
-                    local updated_data = {vaults = vaults}
-                    local json_string = json.encode(updated_data, {indent = true})
-
-                    if json_string then
-                        local file = io.open(json_file_path, "w")
-                        if file then
-                            file:write(json_string)
-                            file:close()
-                            refresh_menu() -- Refresh menu after saving
-                        else
-                            vim.notify("Error: Could not write to JSON file", vim.log.levels.ERROR)
-                        end
-                    else
-                        vim.notify("Error: Could not encode JSON data", vim.log.levels.ERROR)
+                    if save_vault_data(vaults) then
+                        refresh_menu() -- Refresh menu after saving
                     end
                 else
                     vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
@@ -463,7 +486,8 @@ function M.ShowVaultMenu()
 
     local function delete_vault()
         if #vaults == 0 then vim.notify("No vaults to delete.", vim.log.levels.INFO); return end
-        local vault_to_delete = vaults[current_selected_vault_idx]
+        local vault_to_delete_idx_in_table = current_selected_vault_idx -- The actual table index
+        local vault_to_delete = vaults[vault_to_delete_idx_in_table]
         if not vault_to_delete then return end -- Should not happen if #vaults > 0 and idx is valid
 
         local vault_path = vault_to_delete.vaultPath
@@ -474,28 +498,21 @@ function M.ShowVaultMenu()
             prompt = string.format('Delete Vault #%d (%s)?', vault_number, vault_path),
         }, function(choice)
             if choice == 'Yes' then
-                table.remove(vaults, current_selected_vault_idx)
+                table.remove(vaults, vault_to_delete_idx_in_table)
+                table.insert(M.available_vault_numbers, vault_number) -- Add the deleted number to available list
+                table.sort(M.available_vault_numbers) -- Keep it sorted
 
-                -- Renumber remaining vaults to maintain sequential numbering
-                for i = current_selected_vault_idx, #vaults do
-                    vaults[i].vaultNumber = i
-                end
-
-                local updated_data = {vaults = vaults}
-                local json_string = json.encode(updated_data, {indent = true})
-
-                if json_string then
-                    local file = io.open(json_file_path, "w")
-                    if file then
-                        file:write(json_string)
-                        file:close()
-                        refresh_menu() -- Refresh menu after saving
-                    else
-                        vim.notify("Error: Could not write to JSON file", vim.log.levels.ERROR)
+                if save_vault_data(vaults) then -- Save updated vaults and available_vault_numbers
+                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_info.vaultPath), vim.log.levels.INFO)
+                    -- Close the menu window if it's currently open, as its data is now stale
+                    if menu_win and vim.api.nvim_win_is_valid(menu_win) then
+                        vim.api.nvim_win_close(menu_win, true)
+                        menu_win = nil
+                        menu_buf = nil
                     end
-                else
-                    vim.notify("Error: Could not encode JSON data", vim.log.levels.ERROR)
                 end
+            else
+                vim.notify("Vault deletion cancelled.", vim.log.levels.INFO)
             end
         end)
     end
@@ -509,6 +526,8 @@ function M.ShowVaultMenu()
         -- Close the menu window before changing directory
         if menu_win and vim.api.nvim_win_is_valid(menu_win) then
             vim.api.nvim_win_close(menu_win, true)
+            menu_win = nil
+            menu_buf = nil
         end
         vim.cmd('cd ' .. vim.fn.fnameescape(vault_path)) -- Change Neovim's current directory
         print("Opened vault: " .. vault_path)
@@ -557,5 +576,168 @@ function M.ShowVaultMenu()
         vim.keymap.set('n', key, '<Nop>', opts)
     end
 end
+
+-- Function to open a vault by its number, callable via a Vim command
+function M.EnterVaultByNumber(vault_num_str)
+    local vault_number = tonumber(vault_num_str)
+    if not vault_number then
+        vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+        return
+    end
+
+    -- Read JSON file to get current vaults
+    local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
+    local file = io.open(json_file_path, "r")
+    local data = {}
+    if file then
+        local content = file:read("*all")
+        file:close()
+        data = json.decode(content) or {}
+    end
+
+    local vaults = data.vaults or {}
+
+    local target_vault = nil
+    for _, vault in ipairs(vaults) do
+        if vault.vaultNumber == vault_number then
+            target_vault = vault
+            break
+        end
+    end
+
+    if target_vault then
+        -- Close the menu window if it's currently open
+        if menu_win and vim.api.nvim_win_is_valid(menu_win) then
+            vim.api.nvim_win_close(menu_win, true)
+            menu_win = nil
+            menu_buf = nil
+        end
+        vim.cmd('cd ' .. vim.fn.fnameescape(target_vault.vaultPath))
+        print("Opened vault: " .. target_vault.vaultPath)
+    else
+        vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
+    end
+end
+
+-- Function to delete a vault by its number, callable via a Vim command
+function M.DeleteVaultByNumber(vault_num_str)
+    local vault_number = tonumber(vault_num_str)
+    if not vault_number then
+        vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+        return
+    end
+
+    -- Read JSON file to get current vaults and available numbers
+    local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
+    local file = io.open(json_file_path, "r")
+    local data = {}
+    if file then
+        local content = file:read("*all")
+        file:close()
+        data = json.decode(content) or {}
+    end
+
+    local vaults = data.vaults or {}
+    M.available_vault_numbers = data.available_vault_numbers or {}
+
+    if #vaults == 0 then
+        vim.notify("No vaults to delete.", vim.log.levels.INFO)
+        return
+    end
+
+    local vault_to_delete_idx = nil
+    local vault_info = nil -- Store info for confirmation message
+    for i, vault in ipairs(vaults) do
+        if vault.vaultNumber == vault_number then
+            vault_to_delete_idx = i
+            vault_info = vault
+            break
+        end
+    end
+
+    if vault_to_delete_idx then
+        -- Show confirmation dialog
+        vim.ui.select({'Yes', 'No'}, {
+            prompt = string.format('Are you sure you want to delete Vault #%d (%s)? This action is permanent.', vault_info.vaultNumber, vault_info.vaultPath),
+        }, function(choice)
+            if choice == 'Yes' then
+                table.remove(vaults, vault_to_delete_idx)
+                table.insert(M.available_vault_numbers, vault_number) -- Add the deleted number to available list
+                table.sort(M.available_vault_numbers) -- Keep it sorted
+
+                if save_vault_data(vaults) then -- Save updated vaults and available_vault_numbers
+                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_info.vaultPath), vim.log.levels.INFO)
+                    -- Close the menu window if it's currently open, as its data is now stale
+                    if menu_win and vim.api.nvim_win_is_valid(menu_win) then
+                        vim.api.nvim_win_close(menu_win, true)
+                        menu_win = nil
+                        menu_buf = nil
+                    end
+                end
+            else
+                vim.notify("Vault deletion cancelled.", vim.log.levels.INFO)
+            end
+        end)
+    else
+        vim.notify("Vault number " .. vault_number .. " not found for deletion.", vim.log.levels.WARN)
+    end
+end
+
+-- Create a new vault with current working directory as origin
+function M.CreateVaultWithCwd()
+    -- Read JSON file to get current vaults and available numbers
+    local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
+    local file = io.open(json_file_path, "r")
+    local data = {}
+    if file then
+        local content = file:read("*all")
+        file:close()
+        data = json.decode(content) or {}
+    end
+
+    local vaults = data.vaults or {}
+    M.available_vault_numbers = data.available_vault_numbers or {}
+
+    -- Determine the new vault number
+    local new_vault_number
+    if #M.available_vault_numbers > 0 then
+        table.sort(M.available_vault_numbers) -- Ensure smallest number is at the front
+        new_vault_number = table.remove(M.available_vault_numbers, 1)
+    else
+        -- Find the current maximum vault number to assign a new sequential one
+        local max_vault_num = 0
+        for _, vault in ipairs(vaults) do
+            if vault.vaultNumber > max_vault_num then
+                max_vault_num = vault.vaultNumber
+            end
+        end
+        new_vault_number = max_vault_num + 1
+    end
+
+    local current_cwd = vim.fn.getcwd()
+    local expanded_path = vim.fn.expand(current_cwd)
+
+    if vim.fn.isdirectory(expanded_path) == 1 then
+        local new_vault = {
+            vaultNumber = new_vault_number,
+            vaultPath = expanded_path,
+            lastUpdated = os.time()
+        }
+        table.insert(vaults, new_vault)
+
+        if save_vault_data(vaults) then
+            vim.notify(string.format("Vault #%d (%s) created successfully.", new_vault_number, expanded_path), vim.log.levels.INFO)
+            -- Close the menu window if it's currently open, as its data is now stale
+            if menu_win and vim.api.nvim_win_is_valid(menu_win) then
+                vim.api.nvim_win_close(menu_win, true)
+                menu_win = nil
+                menu_buf = nil
+            end
+        end
+    else
+        vim.notify("Error: Current working directory is not a valid directory: " .. current_cwd, vim.log.levels.ERROR)
+    end
+end
+
 
 return M

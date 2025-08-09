@@ -10,9 +10,10 @@ set cpo&vim
 " hi VaultCursorLine ctermbg=238 cterm=none
 
 command! Vaults lua require'vault'.ShowVaultMenu()
-command! VaultEnter lua require'vault'.create_vault_window()
+command! -nargs=1 VaultEnter lua require'vault'.EnterVaultByNumber(<f-args>)
+command! -nargs=1 VaultDelete lua require'vault'.DeleteVaultByNumber(<f-args>)
+command! VaultCreate lua require'vault'.CreateVaultWithCwd()
 " command! VaultCreate lua require'vault'.ShowVaultMenu()
-" command! VaultDelete lua require'vault'.ShowVaultMenu()
 " command! VaultFiles lua require'vault'.ShowVaultMenu()
 " command! VaultFileNext lua require'vault'.ShowVaultMenu()
 " command! VaultFileAdd lua require'vault'.ShowVaultMenu()
