@@ -2,66 +2,55 @@
 	"vaults": [
 		{
 			"vaultNumber": 1,
-			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\react-project",
+      "lastUpdated":1754638005,
+			"vaultPath": "C:\\Users\\james\\Documents\\react-project",
 			"files": [
 				{
 					"fileName": "README.md",
-					"marker": 123,
-					"isNav": true,
-					"isNote": true,
+          "lastUpdated": 1754634015,
 					"notes": "# Hello, this is a project \n ## Set up"
 				},
 				{
 					"fileName": "package.json",
-					"isNav": true,
-					"isNote": false,
-					"marker": 137
+          "lastUpdated": 1754634045,
+					"notes": "This is package.json"
 				},
 				{
 					"fileName": "\\components\\Navbar.js",
-					"isNav": true,
-					"isNote": false,
-					"marker": 29
+          "lastUpdated": 1754634032,
+					"notes": "Do not make any changes to this navbar"
 				}
 			]
 		},
 		{
 			"vaultNumber": 2,
-			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\vim-vault",
+      "lastUpdated":1754638005,
+			"vaultPath": "C:\\Users\\james\\Documents\\vim-vault",
 			"files": [
 				{
 					"fileName": "vault.lua",
-					"isNav": true,
-					"isNote": false,
-					"marker": 137
+          "lastUpdated": 1754634019,
+					"notes": "Lua file"
 				},
 				{
 					"fileName": "\\constant\\init.lua",
-					"isNav": true,
-					"isNote": false,
-					"marker": 29
+          "lastUpdated": 1754624005,
+					"notes": ""
 				}
 			]
 		},
 		{
 			"vaultNumber": 3,
-			"vaultPath": "C:\\Users\\kietdo0602\\Documents\\",
+      "lastUpdated":1754638005,
+			"vaultPath": "C:\\Users\\james\\Documents\\",
 			"files": [
 				{
 					"fileName": "Company.pdf",
-					"marker": 1,
-					"isNav": true,
-					"isNote": true,
-					"notes": "This is some additional note about the company pdf"
+          "lastUpdated": 1754634011,
+					"notes": "Company documentation"
 				}
 			]
 		}
 
-	],
-	"settings": {
-		"enableNotes": true,
-		"displayFileNameOnly": true,
-		"enableEditFileNameDuringUse": true,
-		"createNewFileOnMissing": true
-	}
+	]
 }
