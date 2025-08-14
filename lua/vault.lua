@@ -421,14 +421,12 @@ function M.ShowVaultMenu()
         vim.api.nvim_buf_clear_namespace(main_menu_buf, highlight_ns_id, 0, -1)
 
         -- Apply highlight to the currently selected vault
-        if current_selected_vault_idx > 0 then -- Only try to highlight if a vault is selected
+        if current_selected_vault_idx > 0 then
             local range = vault_line_map[current_selected_vault_idx]
-            if range then -- Double check if range is not nil
-                -- Calculate the start and end buffer line indices for the highlight
+            if range then
                 local highlight_start_line_in_buffer = MAIN_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_scroll_top_line_idx)
                 local highlight_end_line_in_buffer = MAIN_MENU_HEADER_LINES_COUNT + (range.end_line_idx - current_scroll_top_line_idx)
 
-                -- Clamp highlight lines to ensure they are within the visible scrollable area
                 highlight_start_line_in_buffer = math.max(MAIN_MENU_HEADER_LINES_COUNT, highlight_start_line_in_buffer)
                 highlight_end_line_in_buffer = math.min(MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT - 1, highlight_end_line_in_buffer)
 
@@ -438,8 +436,6 @@ function M.ShowVaultMenu()
                     end
                 end
             else
-                -- If vault_line_map[current_selected_vault_idx] is nil, it's an inconsistent state.
-                -- Reset selection to prevent further errors.
                 current_selected_vault_idx = 0
                 current_scroll_top_line_idx = 0
                 M.last_selected_vault = nil
@@ -447,79 +443,65 @@ function M.ShowVaultMenu()
         end
 
         -- Set cursor position
-        if current_selected_vault_idx > 0 then -- Only set cursor if a vault is selected
+        if current_selected_vault_idx > 0 then
             local range = vault_line_map[current_selected_vault_idx]
-            if range then -- Double check if range is not nil
-                -- Calculate the cursor's buffer line index (0-based)
+            if range then
                 local cursor_line_in_buffer = MAIN_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_scroll_top_line_idx)
-                -- Set cursor (nvim_win_set_cursor expects 1-based line index)
                 vim.api.nvim_win_set_cursor(main_menu_win, {cursor_line_in_buffer + 1, 0})
             end
         else
-            -- If no vaults or no selection, set cursor to a neutral position within the scrollable area
             vim.api.nvim_win_set_cursor(main_menu_win, {MAIN_MENU_HEADER_LINES_COUNT + 1, 0})
         end
     end
 
     -- Navigation logic for moving the cursor and adjusting scroll
     local function move_main_menu_cursor(direction)
-        if #M.vaults == 0 then return end -- No vaults to navigate
+        if #M.vaults == 0 then return end
 
         local new_selected_vault_idx = current_selected_vault_idx + direction
-        -- If no current selection (0), and moving down, start from 1. If moving up, stay at 0.
         if current_selected_vault_idx == 0 and direction == 1 then
             new_selected_vault_idx = 1
         end
 
-        -- Clamp the selected vault index to valid range
         new_selected_vault_idx = math.max(1, math.min(#M.vaults, new_selected_vault_idx))
 
-        if new_selected_vault_idx == current_selected_vault_idx then return end -- No change in selection
+        if new_selected_vault_idx == current_selected_vault_idx then return end
 
         current_selected_vault_idx = new_selected_vault_idx
-        M.last_selected_vault = M.vaults[current_selected_vault_idx] -- Update last selected vault
+        M.last_selected_vault = M.vaults[current_selected_vault_idx]
 
-        -- Get the line range of the newly selected vault within the full list of vault lines
         local selected_vault_line_range = nil
-        if current_selected_vault_idx > 0 then -- Only attempt if there's a selection
+        if current_selected_vault_idx > 0 then
             selected_vault_line_range = vault_line_map[current_selected_vault_idx]
         end
 
         if not selected_vault_line_range then
-            -- This means current_selected_vault_idx is positive but somehow
-            -- doesn't map to a line range. Reset to safe defaults.
             current_selected_vault_idx = 0
             current_scroll_top_line_idx = 0
             M.last_selected_vault = nil
-            update_main_menu_display() -- Redraw after reset
+            update_main_menu_display()
             return
         end
 
         local selected_vault_start_line = selected_vault_line_range.start_line_idx
         local selected_vault_end_line = selected_vault_line_range.end_line_idx
 
-        -- Adjust current_scroll_top_line_idx if the selected vault goes out of the visible scroll area
-
-        -- If the selected vault's start line is above the current scroll view (scrolling up)
         if selected_vault_start_line < current_scroll_top_line_idx then
             current_scroll_top_line_idx = selected_vault_start_line
-        -- If the selected vault's end line is below the current scroll view (scrolling down)
         elseif selected_vault_end_line >= current_scroll_top_line_idx + MAIN_MENU_SCROLLABLE_AREA_HEIGHT then
             current_scroll_top_line_idx = selected_vault_end_line - MAIN_MENU_SCROLLABLE_AREA_HEIGHT + 1
         end
 
-        -- Clamp current_scroll_top_line_idx to ensure it stays within valid bounds
-        -- It should not go negative, and it should not push the last vault line beyond the view
         local max_scroll_top_line_idx = math.max(0, #all_vault_lines - MAIN_MENU_SCROLLABLE_AREA_HEIGHT)
         current_scroll_top_line_idx = math.max(0, math.min(current_scroll_top_line_idx, max_scroll_top_line_idx))
 
-        update_main_menu_display() -- Redraw the menu with the new scroll and selection
+        update_main_menu_display()
     end
 
     -- Refresh function (closes current window and re-opens menu to reflect changes)
     local function refresh_main_menu()
-        close_all_menus() -- Ensure all menus are closed before refreshing
-        M.ShowVaultMenu() -- Re-call to re-initialize all state and redraw
+        close_all_menus()
+        M.ShowVaultMenu()
     end
 
     -- Create new buffer and window for the menu
@@ -528,8 +510,8 @@ function M.ShowVaultMenu()
         relative = 'editor',
         width = MAIN_MENU_WIDTH,
         height = MAIN_MENU_HEIGHT,
-        col = (vim.o.columns - MAIN_MENU_WIDTH) / 2, -- Center horizontally
-        row = (vim.o.lines - MAIN_MENU_HEIGHT) / 2, -- Center vertically
+        col = (vim.o.columns - MAIN_MENU_WIDTH) / 2,
+        row = (vim.o.lines - MAIN_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'rounded',
         title = ' Vault Manager ',
@@ -542,13 +524,11 @@ function M.ShowVaultMenu()
 
 
     -- Initial display update - This section calculates initial scroll based on selection
-    local selected_vault_line_range = nil -- Initialize here
+    local selected_vault_line_range = nil
     if current_selected_vault_idx > 0 then
-        -- Attempt to get range only if current_selected_vault_idx is positive
         selected_vault_line_range = vault_line_map[current_selected_vault_idx]
     end
 
-    -- Now, check if selected_vault_line_range is valid *before* using it
     if selected_vault_line_range then
         local selected_vault_start_line = selected_vault_line_range.start_line_idx
         local selected_vault_end_line = selected_vault_line_range.end_line_idx
@@ -561,10 +541,9 @@ function M.ShowVaultMenu()
         local max_scroll_top_line_idx = math.max(0, #all_vault_lines - MAIN_MENU_SCROLLABLE_AREA_HEIGHT)
         current_scroll_top_line_idx = math.max(0, math.min(current_scroll_top_line_idx, max_scroll_top_line_idx))
     else
-        -- If no valid selection or map inconsistency detected, ensure current_selected_vault_idx is 0
-        current_selected_vault_idx = 0 -- Reset to 0 if it was invalidly positive
+        current_selected_vault_idx = 0
         current_scroll_top_line_idx = 0
-        M.last_selected_vault = nil -- Clear last selected vault if no valid selection
+        M.last_selected_vault = nil
     end
     update_main_menu_display()
 
@@ -574,10 +553,9 @@ function M.ShowVaultMenu()
         -- Determine the new vault number
         local new_vault_number
         if #M.available_vault_numbers > 0 then
-            table.sort(M.available_vault_numbers) -- Ensure smallest number is at the front
+            table.sort(M.available_vault_numbers)
             new_vault_number = table.remove(M.available_vault_numbers, 1)
         else
-            -- Find the current maximum vault number to assign a new sequential one
             local max_vault_num = 0
             for _, vault in ipairs(M.vaults) do
                 if vault.vaultNumber > max_vault_num then
@@ -587,7 +565,6 @@ function M.ShowVaultMenu()
             new_vault_number = max_vault_num + 1
         end
 
-        -- Always set default_path to current working directory
         local default_path = vim.fn.getcwd()
         
         vim.ui.input({
@@ -601,13 +578,13 @@ function M.ShowVaultMenu()
                         vaultNumber = new_vault_number,
                         vaultPath = expanded_path,
                         lastUpdated = os.time(),
-                        files = {} -- Initialize with empty files array
+                        files = {}
                     }
                     table.insert(M.vaults, new_vault)
 
                     if save_vault_data() then
-                        M.last_selected_vault = new_vault -- Update last selected vault
-                        refresh_main_menu() -- Refresh menu after saving
+                        M.last_selected_vault = new_vault
+                        refresh_main_menu()
                     end
                 else
                     vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
@@ -620,15 +597,13 @@ function M.ShowVaultMenu()
         if #M.vaults == 0 then vim.notify("No vaults to modify.", vim.log.levels.INFO); return end
         local vault_to_modify = nil
         for _, vault in ipairs(M.vaults) do
-            -- Find the currently selected vault by its *actual* vault number, not its table index
-            -- This is important because sorting changes table indices but not vaultNumbers
             if current_selected_vault_idx > 0 and current_selected_vault_idx <= #M.vaults and vault.vaultNumber == M.vaults[current_selected_vault_idx].vaultNumber then
                 vault_to_modify = vault
                 break
             end
         end
 
-        if not vault_to_modify then return end -- Should not happen if #M.vaults > 0 and idx is valid
+        if not vault_to_modify then return end
 
         local current_path = vault_to_modify.vaultPath
         vim.ui.input({
@@ -642,8 +617,8 @@ function M.ShowVaultMenu()
                     vault_to_modify.lastUpdated = os.time()
 
                     if save_vault_data() then
-                        M.last_selected_vault = vault_to_modify -- Update last selected vault
-                        refresh_main_menu() -- Refresh menu after saving
+                        M.last_selected_vault = vault_to_modify
+                        refresh_main_menu()
                     end
                 else
                     vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
@@ -654,29 +629,27 @@ function M.ShowVaultMenu()
 
     local function delete_vault_interactive()
         if #M.vaults == 0 then vim.notify("No vaults to delete.", vim.log.levels.INFO); return end
-        local vault_to_delete_idx_in_table = current_selected_vault_idx -- The actual table index
+        local vault_to_delete_idx_in_table = current_selected_vault_idx
         local vault_to_delete = M.vaults[vault_to_delete_idx_in_table]
-        if not vault_to_delete then return end -- Should not happen if #M.vaults > 0 and idx is valid
+        if not vault_to_delete then return end
 
         local vault_path = vault_to_delete.vaultPath
         local vault_number = vault_to_delete.vaultNumber
 
-        -- Show confirmation dialog
         vim.ui.select({'Yes', 'No'}, {
             prompt = string.format('Are you sure you want to delete Vault #%d (%s)? This action is permanent.', vault_number, vault_path),
         }, function(choice)
             if choice == 'Yes' then
                 table.remove(M.vaults, vault_to_delete_idx_in_table)
-                table.insert(M.available_vault_numbers, vault_number) -- Add the deleted number to available list
-                table.sort(M.available_vault_numbers) -- Keep it sorted
+                table.insert(M.available_vault_numbers, vault_number)
+                table.sort(M.available_vault_numbers)
 
-                if save_vault_data() then -- Save updated vaults and available_vault_numbers
+                if save_vault_data() then
                     vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_path), vim.log.levels.INFO)
-                    -- If the deleted vault was the last selected, clear the reference
                     if M.last_selected_vault and M.last_selected_vault.vaultNumber == vault_number then
                         M.last_selected_vault = nil
                     end
-                    close_all_menus() -- Close all menus if data changed
+                    close_all_menus()
                 end
             else
                 vim.notify("Vault deletion cancelled.", vim.log.levels.INFO)
@@ -687,12 +660,12 @@ function M.ShowVaultMenu()
     local function open_vault_from_menu()
         if #M.vaults == 0 then vim.notify("No vaults to open.", vim.log.levels.INFO); return end
         local vault_to_open = M.vaults[current_selected_vault_idx]
-        if not vault_to_open then return end -- Should not happen if #M.vaults > 0 and idx is valid
+        if not vault_to_open then return end
 
         local vault_path = vault_to_open.vaultPath
-        M.last_selected_vault = vault_to_open -- Update last selected vault before changing directory
-        close_all_menus() -- Close the menu window before changing directory
-        vim.cmd('cd ' .. vim.fn.fnameescape(vault_path)) -- Change Neovim's current directory
+        M.last_selected_vault = vault_to_open
+        close_all_menus()
+        vim.cmd('cd ' .. vim.fn.fnameescape(vault_path))
         print("Opened vault: " .. vault_path)
     end
 
@@ -712,7 +685,7 @@ function M.ShowVaultMenu()
 
     -- Key mapping for sorting
     vim.keymap.set('n', 's', function()
-        M.current_sort_order = (M.current_sort_order + 1) % 3 -- Cycle through 0, 1, 2
+        M.current_sort_order = (M.current_sort_order + 1) % 3
         refresh_main_menu()
     end, opts)
 
@@ -725,7 +698,7 @@ function M.ShowVaultMenu()
     -- Autocmd to close window when clicking outside or losing focus
     vim.api.nvim_create_autocmd({'BufLeave', 'WinLeave', 'FocusLost'}, {
         buffer = main_menu_buf,
-        once = true, -- Ensure it runs only once to prevent issues if focus shifts rapidly
+        once = true,
         callback = function()
             if main_menu_win and vim.api.nvim_win_is_valid(main_menu_win) then
                 vim.api.nvim_win_close(main_menu_win, true)
@@ -801,7 +774,8 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
     local file_to_open = target_file_entry or files_in_vault[current_selected_file_idx] -- Use argument or current selection
     if not file_to_open then return end
 
-    local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. file_to_open.fileName, ":p")
+    -- Use vim.fn.resolve for robust path resolution
+    local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. file_to_open.fileName)
     close_all_menus() -- Close file menu
     vim.cmd("edit " .. vim.fn.fnameescape(full_file_path))
     
@@ -840,8 +814,8 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
         target_col = file_to_open.col or 0
     end
     
-    vim.api.nvim_win_set_cursor(0, {target_line, target_col}) -- 0 refers to current window
-    vim.cmd("normal! zz") -- Center view on the line
+    vim.api.nvim_win_set_cursor(0, {target_line, target_col})
+    vim.cmd("normal! zz")
 
     -- Update last selected file in the vault object and save data
     vault_object.lastSelectedFile = file_to_open.fileName
@@ -851,21 +825,20 @@ end
 
 
 function M.ShowFileMenu(vault_object)
-    close_all_menus() -- Close any existing menus
+    close_all_menus()
 
     if not vault_object or not vault_object.vaultPath or not vault_object.files then
         vim.notify("Invalid vault selected for File Menu.", vim.log.levels.ERROR)
         return
     end
 
-    -- Deep copy the files table to avoid modifying the original during sorting within the menu
     local files_in_vault = vim.deepcopy(vault_object.files)
     sort_files(files_in_vault, current_file_sort_order)
 
-    local current_selected_file_idx = 1 -- Default to the first file
-    local current_file_scroll_top_line_idx = 0 -- 0-based line index of first visible file line
-    local all_file_display_lines = {} -- Full list of formatted file lines
-    local file_line_map = {} -- Maps file_idx (in sorted table) to {start_line_idx, end_line_idx}
+    local current_selected_file_idx = 1
+    local current_file_scroll_top_line_idx = 0
+    local all_file_display_lines = {}
+    local file_line_map = {}
 
     local highlight_ns_id = vim.api.nvim_create_namespace('file_menu_highlight')
 
@@ -888,13 +861,11 @@ function M.ShowFileMenu(vault_object)
     local function generate_full_file_display_info()
         local lines = {}
         local line_map = {}
-        local current_line_idx = 0 -- 0-based index
+        local current_line_idx = 0
 
-        local filename_max_width = 50 -- Adjust as needed for filename column
+        local filename_max_width = 50
 
         for i, file_entry in ipairs(files_in_vault) do
-            -- File names are relative to vault path, so we use it directly
-            -- Use the new M.file_menu_full_path_display_mode for formatting
             local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode)
             local timestamp = format_timestamp(file_entry.lastUpdated)
 
@@ -1034,7 +1005,6 @@ function M.ShowFileMenu(vault_object)
     end
 
     local function refresh_file_menu()
-        -- Re-read data to get latest files for the current vault
         read_vault_data_into_M()
         local found_vault = nil
         for _, v in ipairs(M.vaults) do
@@ -1044,9 +1014,9 @@ function M.ShowFileMenu(vault_object)
             end
         end
 
-        close_all_menus() -- Close current file menu before recreating
+        close_all_menus()
         if found_vault then
-            M.ShowFileMenu(found_vault) -- Re-open file menu with updated data
+            M.ShowFileMenu(found_vault)
         else
             vim.notify("Parent vault no longer exists.", vim.log.levels.ERROR)
         end
@@ -1058,13 +1028,12 @@ function M.ShowFileMenu(vault_object)
             default = ""
         }, function(relative_path)
             if relative_path and relative_path ~= "" then
-                local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. relative_path, ":p")
+                local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. relative_path)
                 
-                -- Check if directory exists, create if not
                 local parent_dir = vim.fn.fnamodify(full_file_path, ":h")
                 if vim.fn.isdirectory(parent_dir) == 0 then
                     local confirm_create_dir = vim.fn.confirm("Parent directory '" .. parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
-                    if confirm_create_dir == 1 then -- Yes
+                    if confirm_create_dir == 1 then
                         vim.fn.mkdir(parent_dir, "p")
                     else
                         vim.notify("File creation cancelled (directory not created).", vim.log.levels.INFO)
@@ -1072,7 +1041,6 @@ function M.ShowFileMenu(vault_object)
                     end
                 end
 
-                -- Create empty file if it doesn't exist
                 local f = io.open(full_file_path, "a")
                 if f then
                     io.close(f)
@@ -1086,18 +1054,17 @@ function M.ShowFileMenu(vault_object)
                     fileName = relative_path,
                     lastUpdated = os.time(),
                     notes = "",
-                    line = 1, -- Default line for newly created files
-                    col = 0 -- Default column for newly created files
+                    line = 1,
+                    col = 0
                 }
                 table.insert(vault_object.files, new_file)
 
-                -- Update parent vault's lastUpdated
                 vault_object.lastUpdated = os.time()
-                vault_object.lastSelectedFile = new_file.fileName -- Update last selected file for the vault
+                vault_object.lastSelectedFile = new_file.fileName
 
-                if save_vault_data() then -- Save the centralized M.vaults
-                    vim.cmd("edit " .. vim.fn.fnameescape(full_file_path)) -- Open file in Vim
-                    refresh_file_menu() -- Refresh file menu
+                if save_vault_data() then
+                    vim.cmd("edit " .. vim.fn.fnameescape(full_file_path))
+                    refresh_file_menu()
                 else
                     vim.notify("Error saving vault data after file creation.", vim.log.levels.ERROR)
                 end
@@ -1111,31 +1078,29 @@ function M.ShowFileMenu(vault_object)
         if not file_to_modify then return end
 
         local old_relative_path = file_to_modify.fileName
-        local old_full_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. old_relative_path, ":p")
+        local old_full_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. old_relative_path)
 
         vim.ui.input({
             prompt = "Enter new file path (relative to vault): ",
             default = old_relative_path
         }, function(new_relative_path)
             if new_relative_path and new_relative_path ~= "" then
-                local new_full_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. new_relative_path, ":p")
+                local new_full_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. new_relative_path)
 
                 if old_full_path == new_full_path then
                     vim.notify("New path is the same as old path. No changes made.", vim.log.levels.INFO)
                     return
                 end
 
-                -- Optional: Check if new file already exists on disk
                 if vim.fn.filereadable(new_full_path) == 1 or vim.fn.isdirectory(new_full_path) == 1 then
                     vim.notify("Error: Target file/directory already exists: " .. new_full_path, vim.log.levels.ERROR)
                     return
                 end
                 
-                -- Check if parent directory exists for the new path, create if not
                 local new_parent_dir = vim.fn.fnamodify(new_full_path, ":h")
                 if vim.fn.isdirectory(new_parent_dir) == 0 then
                      local confirm_create_dir = vim.fn.confirm("Parent directory '" .. new_parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
-                    if confirm_create_dir == 1 then -- Yes
+                    if confirm_create_dir == 1 then
                         vim.fn.mkdir(new_parent_dir, "p")
                     else
                         vim.notify("File rename/move cancelled (directory not created).", vim.log.levels.INFO)
@@ -1143,21 +1108,18 @@ function M.ShowFileMenu(vault_object)
                     end
                 end
 
-                -- Rename/move file on disk
                 local success, err = pcall(vim.cmd, 'silent !mv ' .. vim.fn.fnameescape(old_full_path) .. ' ' .. vim.fn.fnameescape(new_full_path))
                 if not success then
                     vim.notify("Error renaming file on disk: " .. err, vim.log.levels.ERROR)
                     return
                 end
 
-                -- Update data in JSON
                 file_to_modify.fileName = new_relative_path
                 file_to_modify.lastUpdated = os.time()
-                -- Preserve line/col information during rename
                 file_to_modify.line = file_to_modify.line or 1
                 file_to_modify.col = file_to_modify.col or 0
-                vault_object.lastUpdated = os.time() -- Update parent vault
-                vault_object.lastSelectedFile = file_to_modify.fileName -- Update last selected file for the vault
+                vault_object.lastUpdated = os.time()
+                vault_object.lastSelectedFile = file_to_modify.fileName
 
                 if save_vault_data() then
                     refresh_file_menu()
@@ -1174,14 +1136,12 @@ function M.ShowFileMenu(vault_object)
         local file_to_delete = files_in_vault[file_to_delete_idx]
         if not file_to_delete then return end
 
-        local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. file_to_delete.fileName, ":p")
+        local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. file_to_delete.fileName)
 
         vim.ui.select({'Yes', 'No'}, {
             prompt = string.format('Delete file "%s" from vault data? (File on disk will NOT be deleted)', file_to_delete.fileName),
         }, function(choice)
             if choice == 'Yes' then
-                -- Remove from the actual vault_object.files which is passed by reference from main data
-                -- We need to find the original index in the actual vault_object.files array
                 local original_idx = nil
                 for i, f in ipairs(vault_object.files) do
                     if f.fileName == file_to_delete.fileName then
@@ -1192,13 +1152,12 @@ function M.ShowFileMenu(vault_object)
 
                 if original_idx then
                     table.remove(vault_object.files, original_idx)
-                    vault_object.lastUpdated = os.time() -- Update parent vault
-                    -- If the deleted file was the last selected, clear the reference
+                    vault_object.lastUpdated = os.time()
                     if vault_object.lastSelectedFile == file_to_delete.fileName then
                         vault_object.lastSelectedFile = nil
                     end
 
-                    if save_vault_data() then -- Save the centralized M.vaults
+                    if save_vault_data() then
                         vim.notify(string.format("File '%s' deleted from vault #%d data.", file_to_delete.fileName, vault_object.vaultNumber), vim.log.levels.INFO)
                         refresh_file_menu()
                     else
@@ -1233,10 +1192,8 @@ function M.ShowFileMenu(vault_object)
 
     -- Initial display
     if #files_in_vault > 0 then
-        -- This logic has been moved before generate_full_file_display_info for initial selection
-        -- and current_selected_file_idx is already set based on lastSelectedFile or defaults to 1.
     else
-        current_selected_file_idx = 0 -- No files, so no selection
+        current_selected_file_idx = 0
         current_file_scroll_top_line_idx = 0
     end
     update_file_menu_display()
@@ -1250,21 +1207,21 @@ function M.ShowFileMenu(vault_object)
     vim.keymap.set('n', 'c', create_file_entry, opts)
     vim.keymap.set('n', 'm', modify_file_entry, opts)
     vim.keymap.set('n', 'd', delete_file_entry, opts)
-    vim.keymap.set('n', '<CR>', function() M.open_file_entry(vault_object, nil, current_selected_file_idx, files_in_vault) end, opts) -- Updated call
+    vim.keymap.set('n', '<CR>', function() M.open_file_entry(vault_object, nil, current_selected_file_idx, files_in_vault) end, opts)
     vim.keymap.set('n', 'q', function() close_all_menus() end, opts)
     vim.keymap.set('n', '<Esc>', function() close_all_menus() end, opts)
 
     -- Key mapping for sorting files
     vim.keymap.set('n', 's', function()
-        current_file_sort_order = (current_file_sort_order + 1) % 2 -- Cycle through 0, 1
-        sort_files(files_in_vault, current_file_sort_order) -- Re-sort the local copy
+        current_file_sort_order = (current_file_sort_order + 1) % 2
+        sort_files(files_in_vault, current_file_sort_order)
         update_file_menu_display()
     end, opts)
 
     -- New key mapping for toggling file path display in file menu
     vim.keymap.set('n', 'h', function()
         M.file_menu_full_path_display_mode = not M.file_menu_full_path_display_mode
-        update_file_menu_display() -- Only update the file menu, no need to refresh the whole menu
+        update_file_menu_display()
     end, opts)
 
 
@@ -1297,15 +1254,13 @@ local notes_editor_autocmd_grp = vim.api.nvim_create_augroup('VaultNotesEditorAu
 
 
 function M.EditFileNotes(vault_object, file_entry)
-    close_all_menus() -- Close any open menus (notes menu, file menu, main menu)
+    close_all_menus()
 
     if not vault_object or not file_entry then
         vim.notify("Invalid vault or file entry for notes editing.", vim.log.levels.ERROR)
         return
     end
 
-    -- Create a non-listed, scratch buffer for notes.
-    -- This implicitly sets buftype='nofile' and swapfile=false.
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
     
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
@@ -1320,13 +1275,10 @@ function M.EditFileNotes(vault_object, file_entry)
         title_pos = 'center'
     })
 
-    -- Explicitly make the buffer modifiable
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)
-    -- Ensure the buffer is wiped out when its window is closed
     vim.api.nvim_buf_set_option(notes_editor_buf, 'bufhidden', 'wipe')
 
 
-    -- Put existing notes content into the buffer
     local note_lines = {}
     if file_entry.notes and file_entry.notes ~= "" then
         for line in string.gmatch(file_entry.notes, "[^\r\n]+") do
@@ -1335,24 +1287,18 @@ function M.EditFileNotes(vault_object, file_entry)
     end
     vim.api.nvim_buf_set_lines(notes_editor_buf, 0, -1, false, note_lines)
     
-    -- Reset the 'modified' flag after loading content. This is crucial
-    -- to prevent Neovim from thinking the buffer has unsaved changes initially.
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false)
 
-    vim.api.nvim_win_set_cursor(notes_editor_win, {1,0}) -- Place cursor at top-left
-    vim.cmd("startinsert") -- Immediately enter insert mode
+    vim.api.nvim_win_set_cursor(notes_editor_win, {1,0})
+    vim.cmd("startinsert")
 
-    -- Define a function to save notes and close the window
     local function save_and_close_notes_editor()
         if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
             local current_notes_content = table.concat(vim.api.nvim_buf_get_lines(notes_editor_buf, 0, -1, false), "\n")
             
-            -- Always set modified to false *before* closing. This is crucial
-            -- to prevent 'E37: No write since last change' if the user tries to quit
-            -- without explicitly saving via a keymap.
             vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false) 
 
-            if current_notes_content ~= file_entry.notes then -- Only save if notes have actually changed
+            if current_notes_content ~= file_entry.notes then
                 file_entry.notes = current_notes_content
                 file_entry.lastUpdated = os.time()
                 if save_vault_data() then
@@ -1363,31 +1309,23 @@ function M.EditFileNotes(vault_object, file_entry)
             end
         end
         
-        -- Close the notes editor window if it's still valid.
-        -- Due to 'bufhidden=wipe', the buffer itself will be automatically wiped.
         if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
             vim.api.nvim_win_close(notes_editor_win, true)
         end
-        -- Clear module-level references
         notes_editor_win = nil
         notes_editor_buf = nil
         
-        -- Ensure any autocmds specific to this buffer are cleared now that the buffer is gone
-        vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands') -- Clear the group to prevent old callbacks from firing
-        vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true }) -- Recreate for next use
+        vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
+        vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
     end
 
-    -- Clear any existing autocmds for this specific group before creating new ones
     vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
     vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
 
-    -- Autocommand to save notes when the buffer is left or wiped out.
-    -- This acts as a fallback if custom mappings aren't used or if Neovim's quit logic takes over.
     vim.api.nvim_create_autocmd({'BufLeave', 'BufWipeout'}, {
         group = 'VaultNotesEditorAutoCommands',
         buffer = notes_editor_buf,
         callback = function()
-            -- Only run save_and_close if the buffer is still valid and not already handled
             if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
                 save_and_close_notes_editor()
             end
@@ -1395,22 +1333,15 @@ function M.EditFileNotes(vault_object, file_entry)
         desc = "Fallback save notes on BufLeave/BufWipeout"
     })
 
-    -- Set up key mappings for notes editor
     local opts_normal = {buffer = notes_editor_buf, nowait = true, silent = true}
-    -- 'mode = 'i'' is removed from opts_insert as it's redundant when the mode is already passed as the first argument to vim.keymap.set
     local opts_insert = {buffer = notes_editor_buf, nowait = true, silent = true} 
 
-    -- Normal mode mappings: Crucial for intercepting :q, :wq, etc. via keypresses
-    -- When the user types 'q' in normal mode, this keymap will fire BEFORE Neovim
-    -- processes the ':' and the command.
     vim.keymap.set('n', 'q', save_and_close_notes_editor, opts_normal)
-    vim.keymap.set('n', '<Esc>', save_and_close_notes_editor, opts_normal) -- In normal mode, <Esc> will just act as 'q'
+    vim.keymap.set('n', '<Esc>', save_and_close_notes_editor, opts_normal)
 
-    -- Insert mode mappings (to exit insert, then save and close)
     vim.keymap.set('i', 'jk', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
     vim.keymap.set('i', '<Esc>', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
     
-    -- Disable other movements within the notes editor in normal mode that might conflict or be unnecessary
     local disabled_keys_notes_editor = {'j', 'k', 'h', 'l', '<Left>', '<Right>', '<Up>', '<Down>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd', 'x', 'dd', 'yy', 'p', 'P'}
     for _, key in ipairs(disabled_keys_notes_editor) do
         vim.keymap.set('n', key, '<Nop>', opts_normal)
@@ -1419,20 +1350,20 @@ function M.EditFileNotes(vault_object, file_entry)
 end
 
 function M.ShowNotesMenu(vault_object)
-    close_all_menus() -- Close any existing menus (including notes editor if open)
+    close_all_menus()
 
     if not vault_object or not vault_object.vaultPath or not vault_object.files then
         vim.notify("Invalid vault selected for Notes Menu.", vim.log.levels.ERROR)
         return
     end
 
-    local files_in_vault = vim.deepcopy(vault_object.files) -- This is a copy for display/sorting
-    sort_files(files_in_vault, M.current_notes_sort_order) -- Use notes specific sort order
+    local files_in_vault = vim.deepcopy(vault_object.files)
+    sort_files(files_in_vault, M.current_notes_sort_order)
 
-    local current_selected_file_idx = 1 -- Default to the first file
-    local current_notes_scroll_top_line_idx = 0 -- 0-based line index of first visible file line
-    local all_notes_display_lines = {} -- Full list of formatted file lines
-    local notes_line_map = {} -- Maps file_idx (in sorted table) to {start_line_idx, end_line_idx}
+    local current_selected_file_idx = 1
+    local current_notes_scroll_top_line_idx = 0
+    local all_notes_display_lines = {}
+    local notes_line_map = {}
 
     local highlight_ns_id = vim.api.nvim_create_namespace('notes_menu_highlight')
 
@@ -1454,12 +1385,11 @@ function M.ShowNotesMenu(vault_object)
     local function generate_full_notes_display_info()
         local lines = {}
         local line_map = {}
-        local current_line_idx = 0 -- 0-based index
+        local current_line_idx = 0
 
-        local filename_max_width = 50 -- Adjust as needed for filename column
+        local filename_max_width = 50
 
         for i, file_entry in ipairs(files_in_vault) do
-            -- File names are relative to vault path, so we use it directly
             local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
             local timestamp = format_timestamp(file_entry.lastUpdated)
 
@@ -1597,7 +1527,7 @@ function M.ShowNotesMenu(vault_object)
     end
 
     local function refresh_notes_menu()
-        read_vault_data_into_M() -- Re-read data for the current vault
+        read_vault_data_into_M()
         local found_vault = nil
         for _, v in ipairs(M.vaults) do
             if v.vaultNumber == vault_object.vaultNumber then
@@ -1606,9 +1536,9 @@ function M.ShowNotesMenu(vault_object)
             end
         end
 
-        close_all_menus() -- Close current notes menu before recreating
+        close_all_menus()
         if found_vault then
-            M.ShowNotesMenu(found_vault) -- Re-open notes menu with updated data
+            M.ShowNotesMenu(found_vault)
         else
             vim.notify("Parent vault no longer exists.", vim.log.levels.ERROR)
         end
@@ -1616,13 +1546,11 @@ function M.ShowNotesMenu(vault_object)
 
     local function open_notes_editor()
         if #files_in_vault == 0 then vim.notify("No files to edit notes for.", vim.log.levels.INFO); return end
-        local selected_file_from_display = files_in_vault[current_selected_file_idx] -- This is from the deep copy
+        local selected_file_from_display = files_in_vault[current_selected_file_idx]
 
         if not selected_file_from_display then return end
 
-        -- Find the original file_entry from the main M.vaults structure
         local original_file_entry = nil
-        -- Iterate through the actual files list of the ORIGINAL vault_object
         for _, f_orig in ipairs(vault_object.files) do 
             if f_orig.fileName == selected_file_from_display.fileName then
                 original_file_entry = f_orig
@@ -1631,17 +1559,15 @@ function M.ShowNotesMenu(vault_object)
         end
 
         if original_file_entry then
-            M.EditFileNotes(vault_object, original_file_entry) -- Pass the ORIGINAL file_entry by reference
+            M.EditFileNotes(vault_object, original_file_entry)
         else
             vim.notify("Error: Original file entry not found for notes editing.", vim.log.levels.ERROR)
         end
     end
 
 
-    -- Get the last component of the vault path for the title
     local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
 
-    -- Create new buffer and window for the notes menu
     notes_menu_buf = vim.api.nvim_create_buf(false, true)
     notes_menu_win = vim.api.nvim_open_win(notes_menu_buf, true, {
         relative = 'editor',
@@ -1658,16 +1584,13 @@ function M.ShowNotesMenu(vault_object)
     vim.api.nvim_buf_set_option(notes_menu_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
 
-    -- Initial display
     if #files_in_vault > 0 then
-        -- Initial selection is handled above
     else
-        current_selected_file_idx = 0 -- No files, so no selection
+        current_selected_file_idx = 0
         current_notes_scroll_top_line_idx = 0
     end
     update_notes_menu_display()
 
-    -- Set up key mappings for notes menu
     local opts = {buffer = notes_menu_buf, nowait = true, silent = true}
     vim.keymap.set('n', 'j', function() move_notes_cursor(1) end, opts)
     vim.keymap.set('n', 'k', function() move_notes_cursor(-1) end, opts)
@@ -1677,25 +1600,21 @@ function M.ShowNotesMenu(vault_object)
     vim.keymap.set('n', 'q', function() close_all_menus() end, opts)
     vim.keymap.set('n', '<Esc>', function() close_all_menus() end, opts)
 
-    -- Key mapping for sorting notes menu
     vim.keymap.set('n', 's', function()
-        M.current_notes_sort_order = (M.current_notes_sort_order + 1) % 2 -- Cycle through 0, 1
-        refresh_notes_menu() -- Re-sort and refresh
+        M.current_notes_sort_order = (M.current_notes_sort_order + 1) % 2
+        refresh_notes_menu()
     end, opts)
 
-    -- New key mapping for toggling file path display in notes menu
     vim.keymap.set('n', 'h', function()
         M.notes_menu_full_path_display_mode = not M.notes_menu_full_path_display_mode
         update_notes_menu_display()
     end, opts)
 
-    -- Disable other movements for notes menu
     local disabled_keys_notes_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd'}
     for _, key in ipairs(disabled_keys_notes_menu) do
         vim.keymap.set('n', key, '<Nop>', opts)
     end
 
-    -- Autocmd to close window when clicking outside or losing focus
     vim.api.nvim_create_autocmd({'BufLeave', 'WinLeave', 'FocusLost'}, {
         buffer = notes_menu_buf,
         once = true,
@@ -1713,7 +1632,7 @@ end
 function M.OpenVaultNotesMenu(vault_num_str)
     local target_vault = nil
     
-    if vault_num_str and vault_num_str ~= "" then -- An argument was provided
+    if vault_num_str and vault_num_str ~= "" then
         local vault_number = tonumber(vault_num_str)
         if not vault_number then
             vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
@@ -1730,9 +1649,8 @@ function M.OpenVaultNotesMenu(vault_num_str)
             vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
             return
         end
-    else -- No argument was provided, use the last selected vault
+    else
         if M.last_selected_vault then
-            -- Find the last selected vault in the refreshed M.vaults (important for correct reference)
             local found_match = false
             for _, vault in ipairs(M.vaults) do
                 if vault.vaultNumber == M.last_selected_vault.vaultNumber then
@@ -1743,30 +1661,73 @@ function M.OpenVaultNotesMenu(vault_num_str)
             end
             if not found_match then
                 vim.notify("Last selected vault no longer exists. Please select a vault first or provide a number.", vim.log.levels.WARN)
-                M.last_selected_vault = nil -- Clear invalid reference
-                -- Fallback: If last selected vault is invalid, show main menu
+                M.last_selected_vault = nil
                 M.ShowVaultMenu() 
                 return
             end
         else
             vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
-            M.ShowVaultMenu() -- Automatically open main menu for selection
+            M.ShowVaultMenu()
             return
         end
     end
 
-    -- If a target_vault is found (either by argument or last selected)
-    M.last_selected_vault = target_vault -- Always update last selected vault with the one we're opening
-    M.ShowNotesMenu(target_vault) -- Open the file menu for this vault
+    M.last_selected_vault = target_vault
+    M.ShowNotesMenu(target_vault)
 end
 
+-- New Function to open the Files Menu for a specified vault number or the last selected one
+function M.OpenVaultFilesMenu(vault_num_str)
+    read_vault_data_into_M()
+    local target_vault = nil
 
---------------------------------------------------------------------------------
--- Vim Commands
---------------------------------------------------------------------------------
+    if vault_num_str and vault_num_str ~= "" then
+        local vault_number = tonumber(vault_num_str)
+        if not vault_number then
+            vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+            return
+        end
 
--- Function to open a vault by its number, callable via a Vim command
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == vault_number then
+                target_vault = vault
+                break
+            end
+        end
+        if not target_vault then
+            vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
+            return
+        end
+    else
+        if M.last_selected_vault then
+            local found_match = false
+            for _, vault in ipairs(M.vaults) do
+                if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                    target_vault = vault
+                    found_match = true
+                    break
+                end
+            end
+            if not found_match then
+                vim.notify("Last selected vault no longer exists. Please select a vault first or provide a number.", vim.log.levels.WARN)
+                M.last_selected_vault = nil
+                M.ShowVaultMenu()
+                return
+            end
+        else
+            vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
+            M.ShowVaultMenu()
+            return
+        end
+    end
+
+    M.last_selected_vault = target_vault
+    M.ShowFileMenu(target_vault)
+end
+
+-- Function to open a vault by its number
 function M.EnterVaultByNumber(vault_num_str)
+    read_vault_data_into_M()
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
         vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
@@ -1782,66 +1743,63 @@ function M.EnterVaultByNumber(vault_num_str)
     end
 
     if target_vault then
-        M.last_selected_vault = target_vault -- Update last selected vault
+        M.last_selected_vault = target_vault
         close_all_menus()
         vim.cmd('cd ' .. vim.fn.fnameescape(target_vault.vaultPath))
-        print("Opened vault: " .. target_vault.vaultPath)
+        vim.notify("Entered vault: " .. target_vault.vaultPath, vim.log.levels.INFO)
     else
         vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
     end
 end
 
--- Function to delete a vault by its number, callable via a Vim command
+-- Function to delete a vault by its number
 function M.DeleteVaultByNumber(vault_num_str)
+    read_vault_data_into_M()
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
         vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
         return
     end
 
-    if #M.vaults == 0 then
-        vim.notify("No vaults to delete.", vim.log.levels.INFO)
-        return
-    end
-
-    local vault_to_delete_idx = nil
-    local vault_info = nil
+    local found_idx = nil
+    local vault_to_delete = nil
     for i, vault in ipairs(M.vaults) do
         if vault.vaultNumber == vault_number then
-            vault_to_delete_idx = i
-            vault_info = vault
+            found_idx = i
+            vault_to_delete = vault
             break
         end
     end
 
-    if vault_to_delete_idx then
+    if found_idx then
         vim.ui.select({'Yes', 'No'}, {
-            prompt = string.format('Are you sure you want to delete Vault #%d (%s)? This action is permanent.', vault_number, vault_info.vaultPath),
+            prompt = string.format('Are you sure you want to delete Vault #%d (%s)? This action is permanent.', vault_number, vault_to_delete.vaultPath),
         }, function(choice)
             if choice == 'Yes' then
-                table.remove(M.vaults, vault_to_delete_idx)
+                table.remove(M.vaults, found_idx)
                 table.insert(M.available_vault_numbers, vault_number)
                 table.sort(M.available_vault_numbers)
 
                 if save_vault_data() then
-                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_info.vaultPath), vim.log.levels.INFO)
-                    -- If the deleted vault was the last selected, clear the reference
+                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_to_delete.vaultPath), vim.log.levels.INFO)
                     if M.last_selected_vault and M.last_selected_vault.vaultNumber == vault_number then
                         M.last_selected_vault = nil
                     end
-                    close_all_menus() -- Close all menus if data changed
+                    close_all_menus()
                 end
             else
                 vim.notify("Vault deletion cancelled.", vim.log.levels.INFO)
             end
         end)
     else
-        vim.notify("Vault number " .. vault_number .. " not found for deletion.", vim.log.levels.WARN)
+        vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
     end
 end
 
--- New function to create a new vault with current working directory as origin
+-- Function to create a new vault with the current working directory
 function M.CreateVaultWithCwd()
+    read_vault_data_into_M()
+
     local new_vault_number
     if #M.available_vault_numbers > 0 then
         table.sort(M.available_vault_numbers)
@@ -1857,349 +1815,266 @@ function M.CreateVaultWithCwd()
     end
 
     local current_cwd = vim.fn.getcwd()
-    local expanded_path = vim.fn.expand(current_cwd)
+    local new_vault = {
+        vaultNumber = new_vault_number,
+        vaultPath = current_cwd,
+        lastUpdated = os.time(),
+        files = {}
+    }
 
-    if vim.fn.isdirectory(expanded_path) == 1 then
-        local new_vault = {
-            vaultNumber = new_vault_number,
-            vaultPath = expanded_path,
-            lastUpdated = os.time(),
-            files = {} -- Initialize with empty files array
-        }
-        table.insert(M.vaults, new_vault)
-
-        if save_vault_data() then
-            M.last_selected_vault = new_vault -- Update last selected vault
-            vim.notify(string.format("Vault #%d (%s) created successfully.", new_vault_number, expanded_path), vim.log.levels.INFO)
-            close_all_menus() -- Close menus
+    -- Check if a vault with this path already exists
+    for _, vault in ipairs(M.vaults) do
+        if normalize_path(vault.vaultPath) == normalize_path(current_cwd) then
+            vim.notify("A vault for the current directory already exists.", vim.log.levels.WARN)
+            return
         end
+    end
+
+    table.insert(M.vaults, new_vault)
+
+    if save_vault_data() then
+        M.last_selected_vault = new_vault
+        vim.notify("Vault created for current directory: " .. current_cwd, vim.log.levels.INFO)
     else
-        vim.notify("Error: Current working directory is not a valid directory: " .. current_cwd, vim.log.levels.ERROR)
+        vim.notify("Error creating vault for current directory.", vim.log.levels.ERROR)
     end
 end
 
--- New function to open the File Menu for a specified vault number or the last selected one
-function M.OpenVaultFilesMenu(vault_num_str)
-    
-    local target_vault = nil
-    
-    if vault_num_str and vault_num_str ~= "" then -- An argument was provided
-        local vault_number = tonumber(vault_num_str)
-        if not vault_number then
-            vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
-            return
-        end
-
-        for _, vault in ipairs(M.vaults) do
-            if vault.vaultNumber == vault_number then
-                target_vault = vault
-                break
-            end
-        end
-        if not target_vault then
-            vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
-            return
-        end
-    else -- No argument was provided, use the last selected vault
-        if M.last_selected_vault then
-            -- Find the last selected vault in the refreshed M.vaults (important for correct reference)
-            local found_match = false
-            for _, vault in ipairs(M.vaults) do
-                if vault.vaultNumber == M.last_selected_vault.vaultNumber then
-                    target_vault = vault
-                    found_match = true
-                    break
-                end
-            end
-            if not found_match then
-                vim.notify("Last selected vault no longer exists. Please select a vault first or provide a number.", vim.log.levels.WARN)
-                M.last_selected_vault = nil -- Clear invalid reference
-                -- Fallback: If last selected vault is invalid, show main menu
-                M.ShowVaultMenu() 
-                return
-            end
-        else
-            vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
-            M.ShowVaultMenu() -- Automatically open main menu for selection
-            return
-        end
-    end
-
-    -- If a target_vault is found (either by argument or last selected)
-    M.last_selected_vault = target_vault -- Always update last selected vault with the one we're opening
-    M.ShowFileMenu(target_vault) -- Open the file menu for this vault
-end
-
--- New function to add the current file to the selected vault
+-- Function to add the current file to the selected vault
 function M.AddCurrentFileToVault()
-    -- Re-find M.last_selected_vault to ensure it's a live reference to an object in M.vaults.
-    if M.last_selected_vault then
-        local found_live_vault = nil
-        for _, vault_in_M_vaults in ipairs(M.vaults) do
-            if vault_in_M_vaults.vaultNumber == M.last_selected_vault.vaultNumber then
-                found_live_vault = vault_in_M_vaults
-                break
-            end
-        end
-        -- If found, update M.last_selected_vault to point to the live object in M.vaults
-        M.last_selected_vault = found_live_vault
-    end
+    read_vault_data_into_M()
 
-
-    local current_file_path = vim.api.nvim_buf_get_name(0)
-    
-    if current_file_path == "" then
-        vim.notify("Not currently in a file buffer or buffer has no name. Cannot add.", vim.log.levels.WARN)
+    if not M.last_selected_vault then
+        vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
         return
     end
 
-    if not M.last_selected_vault then
-        vim.notify("No vault selected. Please select a vault first in the main menu or using :VaultEnter.", vim.log.levels.WARN)
+    local current_file_path = vim.api.nvim_buf_get_name(0)
+    if current_file_path == "" then
+        vim.notify("No file is currently open or buffer has no name. Cannot add to vault.", vim.log.levels.WARN)
         return
     end
 
     local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
-    local normalized_file_path = normalize_path(current_file_path)
+    -- Resolve current_file_path to its canonical absolute path for robust comparison
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+    local normalized_current_file_path = normalize_path(resolved_current_file_path)
 
-    -- Ensure vault path also ends with a slash for proper `find` and `sub` behavior, unless it's the root itself.
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
     end
-    
-    -- Check if file path starts with vault path (ensuring it's a sub-path)
-    if not (normalized_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
-        vim.notify("Error: Current file ('" .. current_file_path .. "') is not located within the selected vault's directory structure ('" .. M.last_selected_vault.vaultPath .. "').", vim.log.levels.ERROR)
+
+    if not (normalized_current_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
+        vim.notify(string.format("Current file '%s' is not within the selected vault's path ('%s').", current_file_path, M.last_selected_vault.vaultPath), vim.log.levels.WARN)
         return
     end
 
-    -- Calculate relative path
-    local relative_path = normalized_file_path:sub(#normalized_vault_path + 1)
-    
-    -- Ensure no leading slash on relative path, if the vaultPath already includes it in its normalization
+    local relative_path = normalized_current_file_path:sub(#normalized_vault_path + 1)
     if relative_path:sub(1,1) == "/" then
         relative_path = relative_path:sub(2)
     end
-    
-    -- Handle case where the file is exactly the vault directory itself
-    if relative_path == "" then
-        vim.notify("Cannot add the vault directory itself as a file entry (relative path is empty).", vim.log.levels.ERROR)
-        return
-    end
 
-    -- Check for duplicate file entry in the vault's files array
-    local is_duplicate = false
     for _, file_entry in ipairs(M.last_selected_vault.files) do
         if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
-            is_duplicate = true
-            break
+            vim.notify(string.format("File '%s' is already in the selected vault.", relative_path), vim.log.levels.INFO)
+            return
         end
     end
 
-    if is_duplicate then
-        vim.notify(string.format("File '%s' is already registered in vault #%d.", relative_path, M.last_selected_vault.vaultNumber), vim.log.levels.INFO)
-        return
-    end
-
-    -- Get current line and column for new file entry from cursor position
-    local current_cursor_pos = vim.api.nvim_win_get_cursor(0) -- Returns {line, col}, where line is 1-based, col is 0-based
-    local current_line = current_cursor_pos[1]
-    local current_col = current_cursor_pos[2]
-
-
-    -- Add new file entry
-    local new_file = {
+    local new_file_entry = {
         fileName = relative_path,
         lastUpdated = os.time(),
         notes = "",
-        line = current_line,
-        col = current_col
+        line = vim.api.nvim_win_get_cursor(0)[1],
+        col = vim.api.nvim_win_get_cursor(0)[2]
     }
-    
-    -- IMPORTANT: Insert into the live M.last_selected_vault.files table
-    table.insert(M.last_selected_vault.files, new_file)
-
-    M.last_selected_vault.lastUpdated = os.time() -- Update vault's timestamp
-    -- Fix: Use M.last_selected_vault instead of the undefined vault_object
-    M.last_selected_vault.lastSelectedFile = new_file.fileName 
+    table.insert(M.last_selected_vault.files, new_file_entry)
+    M.last_selected_vault.lastUpdated = os.time()
+    M.last_selected_vault.lastSelectedFile = new_file_entry.fileName
 
     if save_vault_data() then
-        vim.notify(string.format("File '%s' added to vault #%d successfully and data saved.", relative_path, M.last_selected_vault.vaultNumber), vim.log.levels.INFO)
-        -- Refresh file menu if it's currently open for this vault
-        if file_menu_win and vim.api.nvim_win_is_valid(file_menu_win) then
-            M.ShowFileMenu(M.last_selected_vault) -- Re-open the file menu for the selected vault to refresh
-        end
+        vim.notify(string.format("File '%s' added to vault '%s'.", relative_path, M.last_selected_vault.vaultPath), vim.log.levels.INFO)
     else
-        vim.notify("Error saving vault data after adding file (save_vault_data failed).", vim.log.levels.ERROR)
+        vim.notify("Error adding file to vault.", vim.log.levels.ERROR)
     end
 end
 
--- New function to go to the next file in the selected vault
+-- Function to go to the next file in the selected vault
 function M.VaultFileNext()
+    read_vault_data_into_M()
+
     if not M.last_selected_vault then
-        vim.notify("No vault selected. Please select a vault first using the main menu or :VaultEnter.", vim.log.levels.WARN)
+        vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
         return
     end
 
-    -- Re-find M.last_selected_vault in M.vaults to ensure we have a live, up-to-date reference
-    local found_live_vault = nil
-    for _, vault_in_M_vaults in ipairs(M.vaults) do
-        if vault_in_M_vaults.vaultNumber == M.last_selected_vault.vaultNumber then
-            found_live_vault = vault_in_M_vaults
-            break
-        end
-    end
-
-    if not found_live_vault or #found_live_vault.files == 0 then
-        vim.notify("Selected vault has no files or vault no longer exists.", vim.log.levels.INFO)
+    local files_in_vault = M.last_selected_vault.files
+    if #files_in_vault == 0 then
+        vim.notify("No files in the current vault.", vim.log.levels.INFO)
         return
     end
+
+    sort_files(files_in_vault, current_file_sort_order) -- Ensure sorted order for 'next' logic
 
     local current_file_path = vim.api.nvim_buf_get_name(0)
-    local current_file_found_idx = nil
+    local current_relative_path = nil
 
-    -- Use the `found_live_vault.files` for iteration, which is the current state
-    -- We need to sort it first to ensure 'next' logic is consistent
-    local sorted_files_for_next = vim.deepcopy(found_live_vault.files)
-    sort_files(sorted_files_for_next, current_file_sort_order) -- Use the current file menu sort order
+    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
+        normalized_vault_path = normalized_vault_path .. "/"
+    end
 
-    -- Find the index of the current file within the live vault's *sorted* file list
-    for i, file_entry in ipairs(sorted_files_for_next) do
-        local full_file_in_vault = vim.fn.fnamodify(found_live_vault.vaultPath .. "/" .. file_entry.fileName, ":p")
-        if normalize_path(full_file_in_vault) == normalize_path(current_file_path) then
-            current_file_found_idx = i
-            break
+    -- Resolve current_file_path to its canonical absolute path for robust comparison
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+
+    if resolved_current_file_path ~= "" and (normalize_path(resolved_current_file_path):sub(1, #normalized_vault_path) == normalized_vault_path) then
+        current_relative_path = normalize_path(resolved_current_file_path):sub(#normalized_vault_path + 1)
+        if current_relative_path:sub(1,1) == "/" then
+            current_relative_path = current_relative_path:sub(2)
         end
     end
 
-    local next_file_entry = nil
-    if current_file_found_idx then
-        -- Calculate the next index, wrapping around if at the end
-        local next_idx = (current_file_found_idx % #sorted_files_for_next) + 1
-        next_file_entry = sorted_files_for_next[next_idx]
-    else
-        -- If current file is not found in the vault, just go to the first file in the vault (if any)
-        if #sorted_files_for_next > 0 then
-            next_file_entry = sorted_files_for_next[1]
-            vim.notify("Current file not found in selected vault. Opening first file.", vim.log.levels.INFO)
-        else
-            vim.notify("No files in the selected vault to navigate.", vim.log.levels.INFO)
-            return
+    local current_idx_in_list = -1
+    if current_relative_path then
+        for i, file_entry in ipairs(files_in_vault) do
+            if normalize_path(file_entry.fileName) == normalize_path(current_relative_path) then
+                current_idx_in_list = i
+                break
+            end
         end
     end
+
+    local next_idx = (current_idx_in_list == -1 or current_idx_in_list == #files_in_vault) and 1 or current_idx_in_list + 1
+    local next_file_entry = files_in_vault[next_idx]
 
     if next_file_entry then
-        -- Call the now globally accessible M.open_file_entry
-        M.open_file_entry(found_live_vault, next_file_entry, 0, found_live_vault.files) -- Pass required arguments
+        M.open_file_entry(M.last_selected_vault, next_file_entry)
     else
-        vim.notify("Could not determine next file.", vim.log.levels.ERROR)
+        vim.notify("Could not find next file. Perhaps the vault file list is empty.", vim.log.levels.ERROR)
     end
 end
 
--- New function to remove the current file from the selected vault
+-- Function to remove the current file from the selected vault
 function M.RemoveCurrentFileFromVault()
+    read_vault_data_into_M()
+
     if not M.last_selected_vault then
-        vim.notify("No vault selected. Please select a vault first using the main menu or :VaultEnter.", vim.log.levels.WARN)
+        vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
         return
     end
 
     local current_file_path = vim.api.nvim_buf_get_name(0)
     if current_file_path == "" then
-        vim.notify("Not currently in a file buffer or buffer has no name. Cannot remove.", vim.log.levels.WARN)
+        vim.notify("No file is currently open or buffer has no name. Cannot remove from vault.", vim.log.levels.WARN)
         return
     end
 
     local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
-    local normalized_file_path = normalize_path(current_file_path)
+    -- Resolve current_file_path to its canonical absolute path for robust comparison
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+    local normalized_current_file_path = normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
     end
 
-    if not (normalized_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
-        vim.notify("Error: Current file ('" .. current_file_path .. "') is not located within the selected vault's directory ('" .. M.last_selected_vault.vaultPath .. "'). Cannot remove.", vim.log.levels.ERROR)
+    if not (normalized_current_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
+        vim.notify(string.format("Current file '%s' is not within the selected vault's path ('%s'). Cannot remove.", current_file_path, M.last_selected_vault.vaultPath), vim.log.levels.WARN)
         return
     end
 
-    local relative_path = normalized_file_path:sub(#normalized_vault_path + 1)
+    local relative_path = normalized_current_file_path:sub(#normalized_vault_path + 1)
     if relative_path:sub(1,1) == "/" then
         relative_path = relative_path:sub(2)
     end
 
-    local file_found = false
-    local remove_idx = nil
+    local found_idx = nil
     for i, file_entry in ipairs(M.last_selected_vault.files) do
         if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
-            file_found = true
-            remove_idx = i
+            found_idx = i
             break
         end
     end
 
-    if not file_found then
-        vim.notify(string.format("File '%s' is not registered in vault #%d.", relative_path, M.last_selected_vault.vaultNumber), vim.log.levels.INFO)
+    if found_idx then
+        vim.ui.select({'Yes', 'No'}, {
+            prompt = string.format('Are you sure you want to remove file "%s" from the selected vault? (File on disk will NOT be deleted)', relative_path),
+        }, function(choice)
+            if choice == 'Yes' then
+                table.remove(M.last_selected_vault.files, found_idx)
+                M.last_selected_vault.lastUpdated = os.time()
+                if M.last_selected_vault.lastSelectedFile == relative_path then
+                    M.last_selected_vault.lastSelectedFile = nil
+                end
+                if save_vault_data() then
+                    vim.notify(string.format("File '%s' removed from vault '%s'.", relative_path, M.last_selected_vault.vaultPath), vim.log.levels.INFO)
+                else
+                    vim.notify("Error removing file from vault.", vim.log.levels.ERROR)
+                end
+            else
+                vim.notify("File removal cancelled.", vim.log.levels.INFO)
+            end
+        end)
+    else
+        vim.notify(string.format("File '%s' is not found in the selected vault.", relative_path), vim.log.levels.INFO)
+    end
+end
+
+
+-- Function to open the notes editor for the current file, if it's in the selected vault
+function M.OpenCurrentFileNotes()
+    -- Ensure vault data is up-to-date
+    read_vault_data_into_M()
+
+    if not M.last_selected_vault then
+        vim.notify("No vault is currently selected. Please select a vault first using :Vaults or :VaultEnter.", vim.log.levels.WARN)
         return
     end
 
-    vim.ui.select({'Yes', 'No'}, {
-        prompt = string.format('Are you sure you want to remove file "%s" from vault #%d? (File will NOT be deleted from disk)', relative_path, M.last_selected_vault.vaultNumber),
-    }, function(choice)
-        if choice == 'Yes' then
-            table.remove(M.last_selected_vault.files, remove_idx)
-            M.last_selected_vault.lastUpdated = os.time() -- Update vault's timestamp
+    local current_file_path = vim.api.nvim_buf_get_name(0)
+    if current_file_path == "" then
+        vim.notify("No file is currently open or buffer has no name. Cannot open notes.", vim.log.levels.WARN)
+        return
+    end
 
-            -- If the removed file was the last selected, clear the reference
-            if M.last_selected_vault.lastSelectedFile == relative_path then
-                M.last_selected_vault.lastSelectedFile = nil
-            end
+    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    -- Resolve current_file_path to its canonical absolute path for robust comparison
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+    local normalized_current_file_path = normalize_path(resolved_current_file_path)
 
-            if save_vault_data() then
-                vim.notify(string.format("File '%s' removed from vault #%d successfully and data saved.", relative_path, M.last_selected_vault.vaultNumber), vim.log.levels.INFO)
-                -- If file menu is open for this vault, refresh it
-                if file_menu_win and vim.api.nvim_win_is_valid(file_menu_win) then
-                    M.ShowFileMenu(M.last_selected_vault)
-                end
-            else
-                vim.notify("Error saving vault data after file removal.", vim.log.levels.ERROR)
-            end
-        else
-            vim.notify("File removal cancelled.", vim.log.levels.INFO)
+    if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
+        normalized_vault_path = normalized_vault_path .. "/"
+    end
+
+    if not (normalized_current_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
+        vim.notify(string.format("Current file '%s' is not within the selected vault's path ('%s').", current_file_path, M.last_selected_vault.vaultPath), vim.log.levels.WARN)
+        return
+    end
+
+    local relative_path = normalized_current_file_path:sub(#normalized_vault_path + 1)
+    if relative_path:sub(1,1) == "/" then
+        relative_path = relative_path:sub(2)
+    end
+    
+    if relative_path == "" then
+        vim.notify("You are currently in the vault's root directory. Please open a specific file within the vault to edit its notes.", vim.log.levels.INFO)
+        return
+    end
+
+    local found_file_entry = nil
+    for _, file_entry in ipairs(M.last_selected_vault.files) do
+        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+            found_file_entry = file_entry
+            break
         end
-    end)
+    end
+
+    if found_file_entry then
+        M.EditFileNotes(M.last_selected_vault, found_file_entry)
+    else
+        vim.notify(string.format("File '%s' is not registered in the selected vault. Add it first using :VaultFileAdd.", relative_path), vim.log.levels.WARN)
+    end
 end
 
-vim.api.nvim_create_user_command('VaultFiles', function(opts)
-    M.OpenVaultFilesMenu(opts.fargs[1]) -- opts.fargs[1] handles optional argument correctly for nargs='?'
-end, {
-    nargs = "?", -- Now accepts 0 or 1 argument
-    desc = 'Open the File Menu for a specified vault or the last selected one'
-})
-
-vim.api.nvim_create_user_command('VaultFileAdd', function()
-    M.AddCurrentFileToVault()
-end, {
-    nargs = 0, -- Expects no arguments
-    desc = 'Add the current file to the selected vault'
-})
-
-vim.api.nvim_create_user_command('VaultFileNext', function()
-    M.VaultFileNext()
-end, {
-    nargs = 0, -- Expects no arguments
-    desc = 'Go to the next file in the currently selected vault'
-})
-
-vim.api.nvim_create_user_command('VaultFileRemove', function()
-    M.RemoveCurrentFileFromVault()
-end, {
-    nargs = 0, -- Expects no arguments
-    desc = 'Remove the current file from the selected vault'
-})
-
-vim.api.nvim_create_user_command('VaultNotes', function(opts)
-    M.OpenVaultNotesMenu(opts.fargs[1]) -- Similar to VaultFiles, accepts optional vault number
-end, {
-    nargs = "?", -- Accepts 0 or 1 argument
-    desc = 'Open the Notes Menu for a specified vault or the last selected one'
-})
 
 return M
