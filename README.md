@@ -28,29 +28,29 @@ Plug 'kietdo0602/vim-vault'
 
 ## Commands 
 
-':Vaults' - Toggle menu that shows available Vaults.
+- [x] ':Vaults' - Toggle menu that shows available Vaults.
 
-':VaultEnter [number]' - Select Vault with number.
+- [x] ':VaultEnter [number]' - Select Vault with number.
 
-':VaultCreate' - Create new Vault Project with current working directory (cwd) as origin.
+- [x] ':VaultCreate' - Create new Vault Project with current working directory (cwd) as origin.
 
-':VaultDelete [number]' - Delete vault number.
+- [x] ':VaultDelete [number]' - Delete vault number.
 
-':VaultFiles' - Toggle menu that shows Files within selected Vault.
+- [x] ':VaultFiles' - Toggle menu that shows Files within selected Vault.
 
-':VaultFileNext' - Go to the next File within selected Vault.
+- [x] ':VaultFileNext' - Go to the next File within selected Vault.
 
-':VaultFileAdd' - Add current File to selected Vault.
+- [x] ':VaultFileAdd' - Add current File to selected Vault.
 
-':VaultFileRemove' - Remove current File from the Vault.
+- [x] ':VaultFileRemove' - Remove current File from the Vault.
 
-':VaultNotes' - Toggle menu that shows all Notes within that Vault.
+- [x] ':VaultNotes' - Toggle menu that shows all Notes within that Vault.
 
-':VaultNoteOpen' - Open Notes of current File.
+- [] ':VaultNoteOpen' - Open Notes of current File.
 
-':VaultNoteDelete' - Delete Note of current File.
+- [] ':VaultNoteDelete' - Delete Note of current File.
 
-':VaultNoteExport' - Export note to current cwd.
+- [] ':VaultNoteExport' - Export note to current cwd.
 
 
 

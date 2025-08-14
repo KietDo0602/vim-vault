@@ -49,11 +49,23 @@ M.full_path_display_mode = true
 -- true: full path (default), false: last folder name only
 M.file_menu_full_path_display_mode = true
 
+-- New: Module-level state for notes menu sorting
+-- 0: fileName (alphabetical), 1: lastUpdated (desc)
+M.current_notes_sort_order = 0
+
+-- New: Module-level state for notes menu path display
+-- true: full path (default), false: last folder name only
+M.notes_menu_full_path_display_mode = true
+
 -- Module-level variables for the menu window and buffer, allowing external functions to close them
 local main_menu_win = nil
 local main_menu_buf = nil
 local file_menu_win = nil
 local file_menu_buf = nil
+local notes_menu_win = nil -- New: Notes menu window
+local notes_menu_buf = nil -- New: Notes menu buffer
+local notes_editor_win = nil -- New: Notes editor window
+local notes_editor_buf = nil -- New: Notes editor buffer
 
 -- New module-level state to store available (vacated) vault numbers
 M.available_vault_numbers = {}
@@ -82,6 +94,14 @@ local FILE_MENU_HEADER_LINES_COUNT = 3 -- "", "File Name...", "----"
 local FILE_MENU_FOOTER_LINES_COUNT = 7 -- "", "----", "", "Sort: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
 local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed for file list
 local FILE_MENU_HEIGHT = FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_FOOTER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT
+
+-- Constants for notes menu layout (similar to file menu)
+local NOTES_MENU_WIDTH = 80
+local NOTES_MENU_HEADER_LINES_COUNT = 3 -- "", "File Name...", "----"
+local NOTES_MENU_FOOTER_LINES_COUNT = 7 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'Enter'..."
+local NOTES_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed
+local NOTES_MENU_HEIGHT = NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_FOOTER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT
+
 
 -- Helper function to format timestamp
 local function format_timestamp(timestamp)
@@ -234,6 +254,16 @@ local function close_all_menus()
         vim.api.nvim_win_close(file_menu_win, true)
         file_menu_win = nil
         file_menu_buf = nil
+    end
+    if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then -- New: Close notes menu
+        vim.api.nvim_win_close(notes_menu_win, true)
+        notes_menu_win = nil
+        notes_menu_buf = nil
+    end
+    if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then -- New: Close notes editor
+        vim.api.nvim_win_close(notes_editor_win, true)
+        notes_editor_win = nil
+        notes_editor_buf = nil
     end
 end
 
@@ -771,7 +801,7 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
     local file_to_open = target_file_entry or files_in_vault[current_selected_file_idx] -- Use argument or current selection
     if not file_to_open then return end
 
-    local full_file_path = vim.fn.fnamemodify(vault_object.vaultPath .. "/" .. file_to_open.fileName, ":p")
+    local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. file_to_open.fileName, ":p")
     close_all_menus() -- Close file menu
     vim.cmd("edit " .. vim.fn.fnameescape(full_file_path))
     
@@ -1028,10 +1058,10 @@ function M.ShowFileMenu(vault_object)
             default = ""
         }, function(relative_path)
             if relative_path and relative_path ~= "" then
-                local full_file_path = vim.fn.fnamemodify(vault_object.vaultPath .. "/" .. relative_path, ":p")
+                local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. relative_path, ":p")
                 
                 -- Check if directory exists, create if not
-                local parent_dir = vim.fn.fnamemodify(full_file_path, ":h")
+                local parent_dir = vim.fn.fnamodify(full_file_path, ":h")
                 if vim.fn.isdirectory(parent_dir) == 0 then
                     local confirm_create_dir = vim.fn.confirm("Parent directory '" .. parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
                     if confirm_create_dir == 1 then -- Yes
@@ -1081,14 +1111,14 @@ function M.ShowFileMenu(vault_object)
         if not file_to_modify then return end
 
         local old_relative_path = file_to_modify.fileName
-        local old_full_path = vim.fn.fnamemodify(vault_object.vaultPath .. "/" .. old_relative_path, ":p")
+        local old_full_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. old_relative_path, ":p")
 
         vim.ui.input({
             prompt = "Enter new file path (relative to vault): ",
             default = old_relative_path
         }, function(new_relative_path)
             if new_relative_path and new_relative_path ~= "" then
-                local new_full_path = vim.fn.fnamemodify(vault_object.vaultPath .. "/" .. new_relative_path, ":p")
+                local new_full_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. new_relative_path, ":p")
 
                 if old_full_path == new_full_path then
                     vim.notify("New path is the same as old path. No changes made.", vim.log.levels.INFO)
@@ -1102,7 +1132,7 @@ function M.ShowFileMenu(vault_object)
                 end
                 
                 -- Check if parent directory exists for the new path, create if not
-                local new_parent_dir = vim.fn.fnamemodify(new_full_path, ":h")
+                local new_parent_dir = vim.fn.fnamodify(new_full_path, ":h")
                 if vim.fn.isdirectory(new_parent_dir) == 0 then
                      local confirm_create_dir = vim.fn.confirm("Parent directory '" .. new_parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
                     if confirm_create_dir == 1 then -- Yes
@@ -1144,7 +1174,7 @@ function M.ShowFileMenu(vault_object)
         local file_to_delete = files_in_vault[file_to_delete_idx]
         if not file_to_delete then return end
 
-        local full_file_path = vim.fn.fnamemodify(vault_object.vaultPath .. "/" .. file_to_delete.fileName, ":p")
+        local full_file_path = vim.fn.fnamodify(vault_object.vaultPath .. "/" .. file_to_delete.fileName, ":p")
 
         vim.ui.select({'Yes', 'No'}, {
             prompt = string.format('Delete file "%s" from vault data? (File on disk will NOT be deleted)', file_to_delete.fileName),
@@ -1257,6 +1287,479 @@ function M.ShowFileMenu(vault_object)
         end
     })
 end
+
+--------------------------------------------------------------------------------
+-- Notes Menu Functions
+--------------------------------------------------------------------------------
+
+-- Autocommand group for notes editor buffer events
+local notes_editor_autocmd_grp = vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
+
+
+function M.EditFileNotes(vault_object, file_entry)
+    close_all_menus() -- Close any open menus (notes menu, file menu, main menu)
+
+    if not vault_object or not file_entry then
+        vim.notify("Invalid vault or file entry for notes editing.", vim.log.levels.ERROR)
+        return
+    end
+
+    -- Create a non-listed, scratch buffer for notes.
+    -- This implicitly sets buftype='nofile' and swapfile=false.
+    notes_editor_buf = vim.api.nvim_create_buf(false, true)
+    
+    notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
+        relative = 'editor',
+        width = math.floor(vim.o.columns * 0.8),
+        height = math.floor(vim.o.lines * 0.6),
+        col = (vim.o.columns - math.floor(vim.o.columns * 0.8)) / 2,
+        row = (vim.o.lines - math.floor(vim.o.lines * 0.6)) / 2,
+        style = 'minimal',
+        border = 'rounded',
+        title = ' Notes for: ' .. file_entry.fileName,
+        title_pos = 'center'
+    })
+
+    -- Explicitly make the buffer modifiable
+    vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)
+    -- Ensure the buffer is wiped out when its window is closed
+    vim.api.nvim_buf_set_option(notes_editor_buf, 'bufhidden', 'wipe')
+
+
+    -- Put existing notes content into the buffer
+    local note_lines = {}
+    if file_entry.notes and file_entry.notes ~= "" then
+        for line in string.gmatch(file_entry.notes, "[^\r\n]+") do
+            table.insert(note_lines, line)
+        end
+    end
+    vim.api.nvim_buf_set_lines(notes_editor_buf, 0, -1, false, note_lines)
+    
+    -- Reset the 'modified' flag after loading content. This is crucial
+    -- to prevent Neovim from thinking the buffer has unsaved changes initially.
+    vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false)
+
+    vim.api.nvim_win_set_cursor(notes_editor_win, {1,0}) -- Place cursor at top-left
+    vim.cmd("startinsert") -- Immediately enter insert mode
+
+    -- Define a function to save notes and close the window
+    local function save_and_close_notes_editor()
+        if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
+            local current_notes_content = table.concat(vim.api.nvim_buf_get_lines(notes_editor_buf, 0, -1, false), "\n")
+            
+            -- Always set modified to false *before* closing. This is crucial
+            -- to prevent 'E37: No write since last change' if the user tries to quit
+            -- without explicitly saving via a keymap.
+            vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false) 
+
+            if current_notes_content ~= file_entry.notes then -- Only save if notes have actually changed
+                file_entry.notes = current_notes_content
+                file_entry.lastUpdated = os.time()
+                if save_vault_data() then
+                    vim.notify("Notes for '" .. file_entry.fileName .. "' saved.", vim.log.levels.INFO)
+                else
+                    vim.notify("Error saving notes for '" .. file_entry.fileName .. "'.", vim.log.levels.ERROR)
+                end
+            end
+        end
+        
+        -- Close the notes editor window if it's still valid.
+        -- Due to 'bufhidden=wipe', the buffer itself will be automatically wiped.
+        if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
+            vim.api.nvim_win_close(notes_editor_win, true)
+        end
+        -- Clear module-level references
+        notes_editor_win = nil
+        notes_editor_buf = nil
+        
+        -- Ensure any autocmds specific to this buffer are cleared now that the buffer is gone
+        vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands') -- Clear the group to prevent old callbacks from firing
+        vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true }) -- Recreate for next use
+    end
+
+    -- Clear any existing autocmds for this specific group before creating new ones
+    vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
+    vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
+
+    -- Autocommand to save notes when the buffer is left or wiped out.
+    -- This acts as a fallback if custom mappings aren't used or if Neovim's quit logic takes over.
+    vim.api.nvim_create_autocmd({'BufLeave', 'BufWipeout'}, {
+        group = 'VaultNotesEditorAutoCommands',
+        buffer = notes_editor_buf,
+        callback = function()
+            -- Only run save_and_close if the buffer is still valid and not already handled
+            if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
+                save_and_close_notes_editor()
+            end
+        end,
+        desc = "Fallback save notes on BufLeave/BufWipeout"
+    })
+
+    -- Set up key mappings for notes editor
+    local opts_normal = {buffer = notes_editor_buf, nowait = true, silent = true}
+    -- 'mode = 'i'' is removed from opts_insert as it's redundant when the mode is already passed as the first argument to vim.keymap.set
+    local opts_insert = {buffer = notes_editor_buf, nowait = true, silent = true} 
+
+    -- Normal mode mappings: Crucial for intercepting :q, :wq, etc. via keypresses
+    -- When the user types 'q' in normal mode, this keymap will fire BEFORE Neovim
+    -- processes the ':' and the command.
+    vim.keymap.set('n', 'q', save_and_close_notes_editor, opts_normal)
+    vim.keymap.set('n', '<Esc>', save_and_close_notes_editor, opts_normal) -- In normal mode, <Esc> will just act as 'q'
+
+    -- Insert mode mappings (to exit insert, then save and close)
+    vim.keymap.set('i', 'jk', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
+    vim.keymap.set('i', '<Esc>', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
+    
+    -- Disable other movements within the notes editor in normal mode that might conflict or be unnecessary
+    local disabled_keys_notes_editor = {'j', 'k', 'h', 'l', '<Left>', '<Right>', '<Up>', '<Down>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd', 'x', 'dd', 'yy', 'p', 'P'}
+    for _, key in ipairs(disabled_keys_notes_editor) do
+        vim.keymap.set('n', key, '<Nop>', opts_normal)
+    end
+
+end
+
+function M.ShowNotesMenu(vault_object)
+    close_all_menus() -- Close any existing menus (including notes editor if open)
+
+    if not vault_object or not vault_object.vaultPath or not vault_object.files then
+        vim.notify("Invalid vault selected for Notes Menu.", vim.log.levels.ERROR)
+        return
+    end
+
+    local files_in_vault = vim.deepcopy(vault_object.files) -- This is a copy for display/sorting
+    sort_files(files_in_vault, M.current_notes_sort_order) -- Use notes specific sort order
+
+    local current_selected_file_idx = 1 -- Default to the first file
+    local current_notes_scroll_top_line_idx = 0 -- 0-based line index of first visible file line
+    local all_notes_display_lines = {} -- Full list of formatted file lines
+    local notes_line_map = {} -- Maps file_idx (in sorted table) to {start_line_idx, end_line_idx}
+
+    local highlight_ns_id = vim.api.nvim_create_namespace('notes_menu_highlight')
+
+    -- Determine initial selection based on lastSelectedFile
+    if vault_object.lastSelectedFile then
+        local found_idx = nil
+        for i, file_entry in ipairs(files_in_vault) do
+            if file_entry.fileName == vault_object.lastSelectedFile then
+                found_idx = i
+                break
+            end
+        end
+        if found_idx then
+            current_selected_file_idx = found_idx
+        end
+    end
+
+    -- Function to generate all file display lines for notes menu
+    local function generate_full_notes_display_info()
+        local lines = {}
+        local line_map = {}
+        local current_line_idx = 0 -- 0-based index
+
+        local filename_max_width = 50 -- Adjust as needed for filename column
+
+        for i, file_entry in ipairs(files_in_vault) do
+            -- File names are relative to vault path, so we use it directly
+            local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
+            local timestamp = format_timestamp(file_entry.lastUpdated)
+
+            local start_line_for_file = current_line_idx
+
+            local first_line = string.format("%-50s %-20s",
+                formatted_filename[1] or "",
+                timestamp
+            )
+            table.insert(lines, first_line)
+            current_line_idx = current_line_idx + 1
+
+            -- Additional lines for wrapped filenames
+            for j = 2, #formatted_filename do
+                local continuation_line = string.format("%-50s %-20s",
+                    formatted_filename[j],
+                    ""
+                )
+                table.insert(lines, continuation_line)
+                current_line_idx = current_line_idx + 1
+            end
+            local end_line_for_file = current_line_idx - 1
+            line_map[i] = {start_line_idx = start_line_for_file, end_line_idx = end_line_for_file}
+        end
+        return lines, line_map
+    end
+
+    -- Function to update the notes menu content
+    local function update_notes_menu_display()
+        all_notes_display_lines, notes_line_map = generate_full_notes_display_info()
+
+        local display_lines = {}
+
+        -- Header
+        table.insert(display_lines, "")
+        table.insert(display_lines, string.format("%-50s %-20s", "File Name", "Updated"))
+        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH - 2))
+
+        -- Scrollable content
+        local num_total_file_lines = #all_notes_display_lines
+        local current_display_end_line_idx = math.min(current_notes_scroll_top_line_idx + NOTES_MENU_SCROLLABLE_AREA_HEIGHT, num_total_file_lines)
+
+        for i = current_notes_scroll_top_line_idx, current_display_end_line_idx - 1 do
+            table.insert(display_lines, all_notes_display_lines[i + 1])
+        end
+
+        -- Pad with empty lines
+        while #display_lines - NOTES_MENU_HEADER_LINES_COUNT < NOTES_MENU_SCROLLABLE_AREA_HEIGHT do
+            table.insert(display_lines, "")
+        end
+
+        -- Footer
+        table.insert(display_lines, "")
+        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH - 2))
+        table.insert(display_lines, "")
+
+        local sort_text = ""
+        if M.current_notes_sort_order == 0 then
+            sort_text = "Sort: Name (s)"
+        elseif M.current_notes_sort_order == 1 then
+            sort_text = "Sort: Updated (s)"
+        end
+        table.insert(display_lines, sort_text)
+        
+        -- Display current file path display mode
+        local notes_path_display_text = ""
+        if M.notes_menu_full_path_display_mode then
+            notes_path_display_text = "Path: Full (h)"
+        else
+            notes_path_display_text = "Path: Name Only (h)"
+        end
+        table.insert(display_lines, notes_path_display_text)
+
+
+        table.insert(display_lines, "Press 'Enter' to edit notes, 'q' to quit")
+
+        vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', true)
+        vim.api.nvim_buf_set_lines(notes_menu_buf, 0, -1, false, display_lines)
+        vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
+
+        -- Clear existing highlights
+        vim.api.nvim_buf_clear_namespace(notes_menu_buf, highlight_ns_id, 0, -1)
+
+        -- Apply highlight to the currently selected file
+        if #files_in_vault > 0 and notes_line_map[current_selected_file_idx] then
+            local range = notes_line_map[current_selected_file_idx]
+            local highlight_start_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_notes_scroll_top_line_idx)
+            local highlight_end_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.end_line_idx - current_notes_scroll_top_line_idx)
+
+            highlight_start_line_in_buffer = math.max(NOTES_MENU_HEADER_LINES_COUNT, highlight_start_line_in_buffer)
+            highlight_end_line_in_buffer = math.min(NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT - 1, highlight_end_line_in_buffer)
+
+            for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
+                if line_num >= NOTES_MENU_HEADER_LINES_COUNT and line_num < NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT then
+                    vim.api.nvim_buf_add_highlight(notes_menu_buf, highlight_ns_id, 'Visual', line_num, 0, -1)
+                end
+            end
+        end
+
+        -- Set cursor position
+        if #files_in_vault > 0 and notes_line_map[current_selected_file_idx] then
+            local range = notes_line_map[current_selected_file_idx]
+            local cursor_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_notes_scroll_top_line_idx)
+            vim.api.nvim_win_set_cursor(notes_menu_win, {cursor_line_in_buffer + 1, 0})
+        else
+            vim.api.nvim_win_set_cursor(notes_menu_win, {NOTES_MENU_HEADER_LINES_COUNT + 1, 0})
+        end
+    end
+
+    -- Navigation logic for notes menu
+    local function move_notes_cursor(direction)
+        if #files_in_vault == 0 then return end
+
+        local new_selected_file_idx = current_selected_file_idx + direction
+        new_selected_file_idx = math.max(1, math.min(#files_in_vault, new_selected_file_idx))
+
+        if new_selected_file_idx == current_selected_file_idx then return end
+
+        current_selected_file_idx = new_selected_file_idx
+
+        local selected_file_line_range = notes_line_map[current_selected_file_idx]
+        local selected_file_start_line = selected_file_line_range.start_line_idx
+        local selected_file_end_line = selected_file_line_range.end_line_idx
+
+        if selected_file_start_line < current_notes_scroll_top_line_idx then
+            current_notes_scroll_top_line_idx = selected_file_start_line
+        elseif selected_file_end_line >= current_notes_scroll_top_line_idx + NOTES_MENU_SCROLLABLE_AREA_HEIGHT then
+            current_notes_scroll_top_line_idx = selected_file_end_line - NOTES_MENU_SCROLLABLE_AREA_HEIGHT + 1
+        end
+
+        local max_scroll_top_line_idx = math.max(0, #all_notes_display_lines - NOTES_MENU_SCROLLABLE_AREA_HEIGHT)
+        current_notes_scroll_top_line_idx = math.max(0, math.min(current_notes_scroll_top_line_idx, max_scroll_top_line_idx))
+
+        update_notes_menu_display()
+    end
+
+    local function refresh_notes_menu()
+        read_vault_data_into_M() -- Re-read data for the current vault
+        local found_vault = nil
+        for _, v in ipairs(M.vaults) do
+            if v.vaultNumber == vault_object.vaultNumber then
+                found_vault = v
+                break
+            end
+        end
+
+        close_all_menus() -- Close current notes menu before recreating
+        if found_vault then
+            M.ShowNotesMenu(found_vault) -- Re-open notes menu with updated data
+        else
+            vim.notify("Parent vault no longer exists.", vim.log.levels.ERROR)
+        end
+    end
+
+    local function open_notes_editor()
+        if #files_in_vault == 0 then vim.notify("No files to edit notes for.", vim.log.levels.INFO); return end
+        local selected_file_from_display = files_in_vault[current_selected_file_idx] -- This is from the deep copy
+
+        if not selected_file_from_display then return end
+
+        -- Find the original file_entry from the main M.vaults structure
+        local original_file_entry = nil
+        -- Iterate through the actual files list of the ORIGINAL vault_object
+        for _, f_orig in ipairs(vault_object.files) do 
+            if f_orig.fileName == selected_file_from_display.fileName then
+                original_file_entry = f_orig
+                break
+            end
+        end
+
+        if original_file_entry then
+            M.EditFileNotes(vault_object, original_file_entry) -- Pass the ORIGINAL file_entry by reference
+        else
+            vim.notify("Error: Original file entry not found for notes editing.", vim.log.levels.ERROR)
+        end
+    end
+
+
+    -- Get the last component of the vault path for the title
+    local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
+
+    -- Create new buffer and window for the notes menu
+    notes_menu_buf = vim.api.nvim_create_buf(false, true)
+    notes_menu_win = vim.api.nvim_open_win(notes_menu_buf, true, {
+        relative = 'editor',
+        width = NOTES_MENU_WIDTH,
+        height = NOTES_MENU_HEIGHT,
+        col = (vim.o.columns - NOTES_MENU_WIDTH) / 2,
+        row = (vim.o.lines - NOTES_MENU_HEIGHT) / 2,
+        style = 'minimal',
+        border = 'rounded',
+        title = ' Notes in Vault: ' .. (last_folder_name or "N/A"),
+        title_pos = 'center'
+    })
+
+    vim.api.nvim_buf_set_option(notes_menu_buf, 'buftype', 'nofile')
+    vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
+
+    -- Initial display
+    if #files_in_vault > 0 then
+        -- Initial selection is handled above
+    else
+        current_selected_file_idx = 0 -- No files, so no selection
+        current_notes_scroll_top_line_idx = 0
+    end
+    update_notes_menu_display()
+
+    -- Set up key mappings for notes menu
+    local opts = {buffer = notes_menu_buf, nowait = true, silent = true}
+    vim.keymap.set('n', 'j', function() move_notes_cursor(1) end, opts)
+    vim.keymap.set('n', 'k', function() move_notes_cursor(-1) end, opts)
+    vim.keymap.set('n', '<Down>', function() move_notes_cursor(1) end, opts)
+    vim.keymap.set('n', '<Up>', function() move_notes_cursor(-1) end, opts)
+    vim.keymap.set('n', '<CR>', open_notes_editor, opts)
+    vim.keymap.set('n', 'q', function() close_all_menus() end, opts)
+    vim.keymap.set('n', '<Esc>', function() close_all_menus() end, opts)
+
+    -- Key mapping for sorting notes menu
+    vim.keymap.set('n', 's', function()
+        M.current_notes_sort_order = (M.current_notes_sort_order + 1) % 2 -- Cycle through 0, 1
+        refresh_notes_menu() -- Re-sort and refresh
+    end, opts)
+
+    -- New key mapping for toggling file path display in notes menu
+    vim.keymap.set('n', 'h', function()
+        M.notes_menu_full_path_display_mode = not M.notes_menu_full_path_display_mode
+        update_notes_menu_display()
+    end, opts)
+
+    -- Disable other movements for notes menu
+    local disabled_keys_notes_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd'}
+    for _, key in ipairs(disabled_keys_notes_menu) do
+        vim.keymap.set('n', key, '<Nop>', opts)
+    end
+
+    -- Autocmd to close window when clicking outside or losing focus
+    vim.api.nvim_create_autocmd({'BufLeave', 'WinLeave', 'FocusLost'}, {
+        buffer = notes_menu_buf,
+        once = true,
+        callback = function()
+            if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then
+                vim.api.nvim_win_close(notes_menu_win, true)
+                notes_menu_win = nil
+                notes_menu_buf = nil
+            end
+        end
+    })
+end
+
+-- New function to open the Notes Menu for a specified vault number or the last selected one
+function M.OpenVaultNotesMenu(vault_num_str)
+    local target_vault = nil
+    
+    if vault_num_str and vault_num_str ~= "" then -- An argument was provided
+        local vault_number = tonumber(vault_num_str)
+        if not vault_number then
+            vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+            return
+        end
+
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == vault_number then
+                target_vault = vault
+                break
+            end
+        end
+        if not target_vault then
+            vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
+            return
+        end
+    else -- No argument was provided, use the last selected vault
+        if M.last_selected_vault then
+            -- Find the last selected vault in the refreshed M.vaults (important for correct reference)
+            local found_match = false
+            for _, vault in ipairs(M.vaults) do
+                if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                    target_vault = vault
+                    found_match = true
+                    break
+                end
+            end
+            if not found_match then
+                vim.notify("Last selected vault no longer exists. Please select a vault first or provide a number.", vim.log.levels.WARN)
+                M.last_selected_vault = nil -- Clear invalid reference
+                -- Fallback: If last selected vault is invalid, show main menu
+                M.ShowVaultMenu() 
+                return
+            end
+        else
+            vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
+            M.ShowVaultMenu() -- Automatically open main menu for selection
+            return
+        end
+    end
+
+    -- If a target_vault is found (either by argument or last selected)
+    M.last_selected_vault = target_vault -- Always update last selected vault with the one we're opening
+    M.ShowNotesMenu(target_vault) -- Open the file menu for this vault
+end
+
 
 --------------------------------------------------------------------------------
 -- Vim Commands
@@ -1561,7 +2064,7 @@ function M.VaultFileNext()
 
     -- Find the index of the current file within the live vault's *sorted* file list
     for i, file_entry in ipairs(sorted_files_for_next) do
-        local full_file_in_vault = vim.fn.fnamemodify(found_live_vault.vaultPath .. "/" .. file_entry.fileName, ":p")
+        local full_file_in_vault = vim.fn.fnamodify(found_live_vault.vaultPath .. "/" .. file_entry.fileName, ":p")
         if normalize_path(full_file_in_vault) == normalize_path(current_file_path) then
             current_file_found_idx = i
             break
@@ -1664,37 +2167,6 @@ function M.RemoveCurrentFileFromVault()
     end)
 end
 
-
--- Define the new Vim user commands
-vim.api.nvim_create_user_command('VaultEnter', function(opts)
-    M.EnterVaultByNumber(opts.args)
-end, {
-    nargs = 1, -- Expects exactly one argument (the vault number)
-    desc = 'Open a vault by its number'
-})
-
-vim.api.nvim_create_user_command('VaultDelete', function(opts)
-    M.DeleteVaultByNumber(opts.args)
-end, {
-    nargs = 1, -- Expects exactly one argument (the vault number)
-    desc = 'Delete a vault by its number'
-})
-
-vim.api.nvim_create_user_command('VaultCreate', function()
-    M.CreateVaultWithCwd()
-end, {
-    nargs = 0, -- Expects no arguments
-    desc = 'Create a new vault with the current working directory'
-})
-
-vim.api.nvim_create_user_command('Vaults', function() -- Renamed from ShowVaultMenu
-    M.ShowVaultMenu()
-end, {
-    nargs = 0,
-    desc = 'Show the main Vaults menu'
-})
-
-
 vim.api.nvim_create_user_command('VaultFiles', function(opts)
     M.OpenVaultFilesMenu(opts.fargs[1]) -- opts.fargs[1] handles optional argument correctly for nargs='?'
 end, {
@@ -1723,5 +2195,11 @@ end, {
     desc = 'Remove the current file from the selected vault'
 })
 
-return M
+vim.api.nvim_create_user_command('VaultNotes', function(opts)
+    M.OpenVaultNotesMenu(opts.fargs[1]) -- Similar to VaultFiles, accepts optional vault number
+end, {
+    nargs = "?", -- Accepts 0 or 1 argument
+    desc = 'Open the Notes Menu for a specified vault or the last selected one'
+})
 
+return M
