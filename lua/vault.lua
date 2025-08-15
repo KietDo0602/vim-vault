@@ -6,15 +6,21 @@ local M = {}
 -- Function to read vault data from JSON file (now populates M.vaults directly)
 local function read_vault_data_into_M()
     local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
-    local file = io.open(json_file_path, "r")
+    local file, err = io.open(json_file_path, "r")
     local data = {vaults = {}, available_vault_numbers = {}} -- Default empty structure
 
     if file then
         local content = file:read("*all")
         file:close()
-        data = json.decode(content) or data
+        local success, decoded_data = pcall(json.decode, content)
+        if success and decoded_data then
+            data = decoded_data
+            vim.notify("Successfully read vault data from: " .. json_file_path, vim.log.levels.INFO)
+        else
+            vim.notify("Error decoding JSON from file: " .. (decoded_data or "unknown error") .. ". Initializing with empty data.", vim.log.levels.ERROR)
+        end
     else
-        vim.notify("JSON file not found. Creating new vaults file...", vim.log.levels.INFO)
+        vim.notify("JSON file not found or could not be read: " .. (err or "unknown error") .. ". Creating new vaults file on first save.", vim.log.levels.INFO)
         -- save_vault_data will create it with defaults on first write if it doesn't exist.
     end
 
@@ -227,17 +233,23 @@ local function save_vault_data()
     local json_string = json.encode(updated_data, {indent = true})
 
     if json_string then
-        local file = io.open(json_file_path, "w")
+        local file, err = io.open(json_file_path, "w")
         if file then
-            file:write(json_string)
+            local success, write_err = pcall(file.write, file, json_string)
             file:close()
-            return true
+            if success then
+                vim.notify("Successfully wrote JSON data to: " .. json_file_path, vim.log.levels.INFO)
+                return true
+            else
+                vim.notify("Error during file write operation: " .. (write_err or "unknown error"), vim.log.levels.ERROR)
+                return false
+            end
         else
-            vim.notify("Error: Could not write to JSON file.", vim.log.levels.ERROR)
+            vim.notify("Error: Could not open JSON file for writing: " .. (err or "unknown error"), vim.log.levels.ERROR)
             return false
         end
     else
-        vim.notify("Error: Could not encode JSON data.", vim.log.levels.ERROR)
+        vim.notify("Error: Could not encode JSON data. JSON string is nil.", vim.log.levels.ERROR)
         return false
     end
 end
@@ -1254,6 +1266,7 @@ local notes_editor_autocmd_grp = vim.api.nvim_create_augroup('VaultNotesEditorAu
 
 
 function M.EditFileNotes(vault_object, file_entry)
+    vim.notify("Entering M.EditFileNotes for vault: " .. vault_object.vaultNumber .. ", file: " .. file_entry.fileName, vim.log.levels.INFO)
     close_all_menus()
 
     if not vault_object or not file_entry then
@@ -1278,54 +1291,102 @@ function M.EditFileNotes(vault_object, file_entry)
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)
     vim.api.nvim_buf_set_option(notes_editor_buf, 'bufhidden', 'wipe')
 
+    -- Store identifiers (not direct references) to retrieve the correct entry later
+    vim.api.nvim_buf_set_var(notes_editor_buf, 'vault_number_id', vault_object.vaultNumber)
+    vim.api.nvim_buf_set_var(notes_editor_buf, 'file_name_id', file_entry.fileName)
+
 
     local note_lines = {}
-    if file_entry.notes and file_entry.notes ~= "" then
-        for line in string.gmatch(file_entry.notes, "[^\r\n]+") do
-            table.insert(note_lines, line)
-        end
+    -- Load notes, ensuring empty lines are preserved.
+    -- vim.split is preferred over string.gmatch for this purpose.
+    if file_entry.notes and #file_entry.notes > 0 then
+        note_lines = vim.split(file_entry.notes, "\n", {plain=true})
     end
     vim.api.nvim_buf_set_lines(notes_editor_buf, 0, -1, false, note_lines)
     
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false)
 
     vim.api.nvim_win_set_cursor(notes_editor_win, {1,0})
-    vim.cmd("startinsert")
+    -- Removed vim.cmd("startinsert") to default to normal mode
 
     local function save_and_close_notes_editor()
+        vim.notify("Attempting to save notes and close editor.", vim.log.levels.INFO)
         if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
             local current_notes_content = table.concat(vim.api.nvim_buf_get_lines(notes_editor_buf, 0, -1, false), "\n")
             
-            vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false) 
+            -- Retrieve identifiers
+            local vault_num_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'vault_number_id')
+            local file_name_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'file_name_id')
+            
+            vim.notify("Retrieved IDs: Vault=" .. tostring(vault_num_id) .. ", File='" .. tostring(file_name_id) .. "'", vim.log.levels.INFO)
 
-            if current_notes_content ~= file_entry.notes then
-                file_entry.notes = current_notes_content
-                file_entry.lastUpdated = os.time()
-                if save_vault_data() then
-                    vim.notify("Notes for '" .. file_entry.fileName .. "' saved.", vim.log.levels.INFO)
-                else
-                    vim.notify("Error saving notes for '" .. file_entry.fileName .. "'.", vim.log.levels.ERROR)
+            local target_vault = nil
+            local target_file_entry = nil
+
+            -- Re-locate the actual file entry in M.vaults
+            for _, vault in ipairs(M.vaults) do
+                if vault.vaultNumber == vault_num_id then
+                    target_vault = vault
+                    for _, file_e in ipairs(target_vault.files) do
+                        if file_e.fileName == file_name_id then
+                            target_file_entry = file_e
+                            break
+                        end
+                    end
+                    break
                 end
             end
+
+            if target_file_entry then
+                vim.notify("Target file entry re-located. Current notes in buffer len: " .. #current_notes_content .. ", Stored notes len: " .. #target_file_entry.notes, vim.log.levels.INFO)
+                if current_notes_content ~= target_file_entry.notes then -- Only save if notes have actually changed
+                    target_file_entry.notes = current_notes_content
+                    target_file_entry.lastUpdated = os.time()
+                    if save_vault_data() then
+                        vim.notify("Notes for '" .. target_file_entry.fileName .. "' saved successfully.", vim.log.levels.INFO)
+                        -- Set modified to false only after a successful save
+                        vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false)
+                    else
+                        vim.notify("Error saving notes for '" .. target_file_entry.fileName .. "'.", vim.log.levels.ERROR)
+                    end
+                else
+                    vim.notify("No changes detected for notes of '" .. target_file_entry.fileName .. "'. Not saving.", vim.log.levels.INFO)
+                end
+            else
+                vim.notify("Could not find the target file entry in vault data (after re-location). Notes not saved.", vim.log.levels.ERROR)
+            end
+        else
+            vim.notify("Notes editor buffer is invalid. Skipping save.", vim.log.levels.WARN)
         end
         
+        -- Always close the window/buffer regardless of whether changes were saved
         if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
             vim.api.nvim_win_close(notes_editor_win, true)
+            vim.notify("Notes editor window closed.", vim.log.levels.INFO)
+        else
+            vim.notify("Notes editor window not valid or already closed.", vim.log.levels.WARN)
         end
+        -- Clear module-level references
         notes_editor_win = nil
         notes_editor_buf = nil
         
+        -- Ensure any autocmds specific to this buffer are cleared now that the buffer is gone
         vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
         vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
+        vim.notify("Notes editor autocommand group cleared.", vim.log.levels.INFO)
     end
 
+    -- Clear any existing autocmds for this specific group before creating new ones
     vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
     vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
 
+    -- Autocommand to save notes when the buffer is left or wiped out.
+    -- This acts as a fallback if custom mappings aren't used or if Neovim's quit logic takes over.
     vim.api.nvim_create_autocmd({'BufLeave', 'BufWipeout'}, {
         group = 'VaultNotesEditorAutoCommands',
         buffer = notes_editor_buf,
         callback = function()
+            -- Only run save_and_close if the buffer is still valid and not already handled
             if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
                 save_and_close_notes_editor()
             end
@@ -1333,20 +1394,28 @@ function M.EditFileNotes(vault_object, file_entry)
         desc = "Fallback save notes on BufLeave/BufWipeout"
     })
 
+    -- Set up key mappings for notes editor
     local opts_normal = {buffer = notes_editor_buf, nowait = true, silent = true}
     local opts_insert = {buffer = notes_editor_buf, nowait = true, silent = true} 
 
+    -- Normal mode mappings: 'q' and '<Esc>' in normal mode will now save and close.
     vim.keymap.set('n', 'q', save_and_close_notes_editor, opts_normal)
     vim.keymap.set('n', '<Esc>', save_and_close_notes_editor, opts_normal)
 
-    vim.keymap.set('i', 'jk', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
-    vim.keymap.set('i', '<Esc>', function() vim.cmd("stopinsert"); save_and_close_notes_editor() end, opts_insert)
+    -- Insert mode mappings: 'jk' and '<Esc>' will ONLY exit insert mode, allowing normal mode editing.
+    vim.keymap.set('i', 'jk', function() vim.cmd("stopinsert") end, opts_insert)
+    vim.keymap.set('i', '<Esc>', function() vim.cmd("stopinsert") end, opts_insert)
     
-    local disabled_keys_notes_editor = {'j', 'k', 'h', 'l', '<Left>', '<Right>', '<Up>', '<Down>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd', 'x', 'dd', 'yy', 'p', 'P'}
+    -- Disabled keys for notes editor. No keys related to basic editing or navigation should be disabled.
+    -- These are very specific commands that might conflict with the floating window's management.
+    local disabled_keys_notes_editor = {
+        -- Only disable commands that affect window/buffer management in a way that conflicts
+        -- with the floating window's intended lifecycle or the vault data structure directly.
+        -- For a normal editing experience, almost nothing should be explicitly disabled here.
+    }
     for _, key in ipairs(disabled_keys_notes_editor) do
         vim.keymap.set('n', key, '<Nop>', opts_normal)
     end
-
 end
 
 function M.ShowNotesMenu(vault_object)
@@ -1781,7 +1850,7 @@ function M.DeleteVaultByNumber(vault_num_str)
                 table.sort(M.available_vault_numbers)
 
                 if save_vault_data() then
-                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_to_delete.vaultPath), vim.log.levels.INFO)
+                    vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_path), vim.log.levels.INFO)
                     if M.last_selected_vault and M.last_selected_vault.vaultNumber == vault_number then
                         M.last_selected_vault = nil
                     end
@@ -2011,8 +2080,6 @@ function M.RemoveCurrentFileFromVault()
                 else
                     vim.notify("Error removing file from vault.", vim.log.levels.ERROR)
                 end
-            else
-                vim.notify("File removal cancelled.", vim.log.levels.INFO)
             end
         end)
     else
@@ -2020,13 +2087,29 @@ function M.RemoveCurrentFileFromVault()
     end
 end
 
-
 -- Function to open the notes editor for the current file, if it's in the selected vault
 function M.OpenCurrentFileNotes()
     -- Ensure vault data is up-to-date
     read_vault_data_into_M()
 
-    if not M.last_selected_vault then
+    -- Ensure M.last_selected_vault points to the most current object in M.vaults
+    if M.last_selected_vault then
+        local found_current_vault = nil
+        for _, v in ipairs(M.vaults) do
+            if v.vaultNumber == M.last_selected_vault.vaultNumber then
+                found_current_vault = v
+                break
+            end
+        end
+        if found_current_vault then
+            M.last_selected_vault = found_current_vault -- Explicitly re-point
+        else
+            -- Last selected vault no longer exists in current data, clear it
+            M.last_selected_vault = nil
+            vim.notify("Last selected vault no longer exists. Please select a vault first using :Vaults or :VaultEnter.", vim.log.levels.WARN)
+            return
+        end
+    else
         vim.notify("No vault is currently selected. Please select a vault first using :Vaults or :VaultEnter.", vim.log.levels.WARN)
         return
     end
@@ -2076,5 +2159,111 @@ function M.OpenCurrentFileNotes()
     end
 end
 
+--- New function to delete all note content for the current file.
+function M.DeleteCurrentFileNotes()
+    read_vault_data_into_M()
+
+    -- Ensure M.last_selected_vault points to the most current object in M.vaults
+    if M.last_selected_vault then
+        local found_current_vault = nil
+        for _, v in ipairs(M.vaults) do
+            if v.vaultNumber == M.last_selected_vault.vaultNumber then
+                found_current_vault = v
+                break
+            end
+        end
+        if found_current_vault then
+            M.last_selected_vault = found_current_vault -- Explicitly re-point
+        else
+            -- Last selected vault no longer exists in current data, clear it
+            M.last_selected_vault = nil
+            vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
+            return
+        end
+    else
+        vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
+        return
+    end
+
+    local current_file_path = vim.api.nvim_buf_get_name(0)
+    if current_file_path == "" then
+        vim.notify("No file is currently open or buffer has no name. Cannot delete notes.", vim.log.levels.WARN)
+        return
+    end
+
+    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+
+    if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
+        normalized_vault_path = normalized_vault_path .. "/"
+    end
+
+    if not (normalized_current_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
+        vim.notify(string.format("Current file '%s' is not within the selected vault's path ('%s'). Cannot delete notes.", current_file_path, M.last_selected_vault.vaultPath), vim.log.levels.WARN)
+        return
+    end
+
+    local relative_path = normalized_current_file_path:sub(#normalized_vault_path + 1)
+    if relative_path:sub(1,1) == "/" then
+        relative_path = relative_path:sub(2)
+    end
+
+    if relative_path == "" then
+        vim.notify("You are currently in the vault's root directory. Please open a specific file within the vault to delete its notes.", vim.log.levels.INFO)
+        return
+    end
+
+    local found_file_entry = nil
+    for _, file_entry in ipairs(M.last_selected_vault.files) do
+        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+            found_file_entry = file_entry
+            break
+        end
+    end
+
+    if not found_file_entry then
+        vim.notify(string.format("File '%s' is not registered in the selected vault. Add it first using :VaultFileAdd.", relative_path), vim.log.levels.WARN)
+        return
+    end
+
+    if found_file_entry.notes == "" then
+        vim.notify("Notes for '" .. found_file_entry.fileName .. "' are already empty.", vim.log.levels.INFO)
+        return
+    end
+
+    vim.ui.select({'Yes', 'No'}, {
+        prompt = string.format('Are you sure you want to delete ALL notes for "%s"? This action cannot be undone.', found_file_entry.fileName),
+    }, function(choice)
+        if choice == 'Yes' then
+            found_file_entry.notes = ""
+            found_file_entry.lastUpdated = os.time()
+            if save_vault_data() then
+                vim.notify("Notes for '" .. found_file_entry.fileName .. "' deleted successfully.", vim.log.levels.INFO)
+
+                -- Refresh the notes editor if it's currently open and displaying these notes
+                if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
+                    local current_editor_buf = vim.api.nvim_win_get_buf(notes_editor_win)
+                    -- Use the stored identifiers to verify it's the correct buffer
+                    local editor_vault_num = vim.api.nvim_buf_get_var(current_editor_buf, 'vault_number_id')
+                    local editor_file_name = vim.api.nvim_buf_get_var(current_editor_buf, 'file_name_id')
+
+                    if editor_vault_num == M.last_selected_vault.vaultNumber and editor_file_name == found_file_entry.fileName then
+                        vim.api.nvim_buf_set_option(current_editor_buf, 'modifiable', true)
+                        vim.api.nvim_buf_set_lines(current_editor_buf, 0, -1, false, {}) -- Set to empty table
+                        vim.api.nvim_buf_set_option(current_editor_buf, 'modifiable', false)
+                        vim.notify("Notes editor content refreshed.", vim.log.levels.INFO)
+                    end
+                end
+            else
+                vim.notify("Error deleting notes for '" .. found_file_entry.fileName .. "'.", vim.log.levels.ERROR)
+            end
+        else
+            vim.notify("Notes deletion cancelled.", vim.log.levels.INFO)
+        end
+    end)
+end
+
 
 return M
+

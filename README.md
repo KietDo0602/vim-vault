@@ -46,9 +46,9 @@ Plug 'kietdo0602/vim-vault'
 
 - [x] ':VaultNotes' - Toggle menu that shows all Notes within that Vault.
 
-- [] ':VaultNoteOpen' - Open Notes of current File.
+- [x] ':VaultNoteOpen' - Open Notes of current File.
 
-- [] ':VaultNoteDelete' - Delete Note of current File.
+- [x] ':VaultNoteDelete' - Delete Note of current File.
 
 - [] ':VaultNoteExport' - Export note to current cwd.
 
