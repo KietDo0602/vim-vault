@@ -2264,6 +2264,145 @@ function M.DeleteCurrentFileNotes()
     end)
 end
 
+-- Export the note of the current file as a file.
+function M.ExportCurrentFileNotes()
+    read_vault_data_into_M()
+
+    if not M.last_selected_vault then
+        vim.notify("No vault is currently selected. Please select a vault first using :Vaults or :VaultEnter.", vim.log.levels.WARN)
+        return
+    end
+
+    -- Ensure M.last_selected_vault points to the most current object in M.vaults
+    local found_current_vault = nil
+    for _, v in ipairs(M.vaults) do
+        if v.vaultNumber == M.last_selected_vault.vaultNumber then
+            found_current_vault = v
+            break
+        end
+    end
+    if found_current_vault then
+        M.last_selected_vault = found_current_vault -- Explicitly re-point
+    else
+        M.last_selected_vault = nil
+        vim.notify("Last selected vault no longer exists. Please select a vault first.", vim.log.levels.WARN)
+        return
+    end
+
+    local current_file_path = vim.api.nvim_buf_get_name(0)
+    if current_file_path == "" then
+        vim.notify("No file is currently open or buffer has no name. Cannot export notes.", vim.log.levels.WARN)
+        return
+    end
+
+    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+
+    if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
+        normalized_vault_path = normalized_vault_path .. "/"
+    end
+
+    if not (normalized_current_file_path:sub(1, #normalized_vault_path) == normalized_vault_path) then
+        vim.notify(string.format("Current file '%s' is not within the selected vault's path ('%s'). Cannot export notes.", current_file_path, M.last_selected_vault.vaultPath), vim.log.levels.WARN)
+        return
+    end
+
+    local relative_path = normalized_current_file_path:sub(#normalized_vault_path + 1)
+    if relative_path:sub(1,1) == "/" then
+        relative_path = relative_path:sub(2)
+    end
+    
+    if relative_path == "" then
+        vim.notify("You are currently in the vault's root directory. Please open a specific file within the vault to export its notes.", vim.log.levels.INFO)
+        return
+    end
+
+    local found_file_entry = nil
+    for _, file_entry in ipairs(M.last_selected_vault.files) do
+        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+            found_file_entry = file_entry
+            break
+        end
+    end
+
+    if not found_file_entry then
+        vim.notify(string.format("File '%s' is not registered in the selected vault. Add it first using :VaultFileAdd.", relative_path), vim.log.levels.WARN)
+        return
+    end
+
+    -- Changed INFO to WARN here as requested
+    if found_file_entry.notes == "" then
+        vim.notify("No notes found for '" .. found_file_entry.fileName .. "'. Nothing to export.", vim.log.levels.WARN)
+        return
+    end
+
+    -- Helper to get filename and parent directory for Lua string manipulation
+    local function get_file_and_dir_from_path(full_path)
+        local path_sep = string.sub(package.config, 1, 1)
+        local last_sep_pos = math.max(full_path:find(path_sep .. '[^' .. path_sep .. ']*$') or 0, full_path:find('/[^/]*$') or 0, full_path:find('\\[^\\]*$') or 0)
+
+        local dir = full_path
+        local filename = full_path
+        if last_sep_pos > 0 then
+            dir = full_path:sub(1, last_sep_pos - 1)
+            filename = full_path:sub(last_sep_pos + 1)
+        end
+        return dir, filename
+    end
+
+    local function get_filename_stem(filename)
+        local dot_pos = filename:find("%.[^%.]*$")
+        if dot_pos then
+            return filename:sub(1, dot_pos - 1)
+        else
+            return filename
+        end
+    end
+
+    -- Construct default export path using Lua string manipulation
+    local _, current_filename = get_file_and_dir_from_path(current_file_path)
+    local current_file_stem = get_filename_stem(current_filename)
+    local default_export_filename = current_file_stem .. "_notes.txt"
+    
+    local path_separator = string.sub(package.config, 1, 1)
+    local default_export_path = vim.fn.expand(vim.fn.getcwd() .. path_separator .. default_export_filename)
+
+    vim.ui.input({
+        prompt = "Export notes to (full path): ",
+        default = default_export_path
+    }, function(export_path)
+        if export_path and export_path ~= "" then
+            local expanded_export_path = vim.fn.expand(export_path)
+            -- Use Lua string manipulation for parent_dir
+            local parent_dir, _ = get_file_and_dir_from_path(expanded_export_path)
+
+            if vim.fn.isdirectory(parent_dir) == 0 then
+                local success_mkdir, err_mkdir = pcall(vim.fn.mkdir, parent_dir, "p")
+                if not success_mkdir then
+                    vim.notify("Error creating directory '" .. parent_dir .. "': " .. (err_mkdir or "unknown error"), vim.log.levels.ERROR)
+                    return
+                end
+            end
+
+            local file, err = io.open(expanded_export_path, "w")
+            if file then
+                local success, write_err = pcall(file.write, file, found_file_entry.notes)
+                file:close()
+                if success then
+                    vim.notify("Notes for '" .. found_file_entry.fileName .. "' exported to '" .. expanded_export_path .. "'.", vim.log.levels.INFO)
+                else
+                    vim.notify("Error writing notes to file '" .. expanded_export_path .. "': " .. (write_err or "unknown error"), vim.log.levels.ERROR)
+                end
+            else
+                vim.notify("Error opening file for writing '" .. expanded_export_path .. "': " .. (err or "unknown error"), vim.log.levels.ERROR)
+            end
+        else
+            vim.notify("Notes export cancelled.", vim.log.levels.INFO)
+        end
+    end)
+end
+
 
 return M
 

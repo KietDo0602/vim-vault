@@ -50,7 +50,7 @@ Plug 'kietdo0602/vim-vault'
 
 - [x] ':VaultNoteDelete' - Delete Note of current File.
 
-- [] ':VaultNoteExport' - Export note to current cwd.
+- [x] ':VaultNoteExport' - Export note to current cwd.
 
 
 

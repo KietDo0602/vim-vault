@@ -20,5 +20,5 @@ command! VaultFileRemove lua require'vault'.RemoveCurrentFileFromVault()
 command! -nargs=? VaultNotes lua require'vault'.OpenVaultNotesMenu(<f-args>)
 command! VaultNoteOpen lua require'vault'.OpenCurrentFileNotes()
 command! VaultNoteDelete lua require'vault'.DeleteCurrentFileNotes()
-" command! VaultNoteExport lua require'vault'.ShowVaultMenu()
+command! VaultNoteExport lua require'vault'.ExportCurrentFileNotes()
 
