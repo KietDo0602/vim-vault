@@ -1,5 +1,5 @@
 local json = require("lib.dkjson")
-local CONSTANT = require('constant') -- Assuming this provides CONSTANT.FILE_PATH
+local CONSTANT = require('constant')
 
 local M = {}
 
@@ -15,7 +15,6 @@ local function read_vault_data_into_M()
         local success, decoded_data = pcall(json.decode, content)
         if success and decoded_data then
             data = decoded_data
-            vim.notify("Successfully read vault data from: " .. json_file_path, vim.log.levels.INFO)
         else
             vim.notify("Error decoding JSON from file: " .. (decoded_data or "unknown error") .. ". Initializing with empty data.", vim.log.levels.ERROR)
         end
@@ -125,6 +124,54 @@ local function normalize_path(path)
     return normalized
 end
 
+-- Helper to get filename and parent directory from a full path using standard Lua string functions
+local function get_file_and_dir_from_path(full_path)
+    local normalized_path = full_path:gsub("\\", "/") -- Normalize to forward slashes
+
+    local last_slash_idx = 0
+    -- Iterate backward to find the last slash
+    for i = #normalized_path, 1, -1 do
+        if normalized_path:sub(i, i) == "/" then
+            last_slash_idx = i
+            break
+        end
+    end
+
+    local dir_path
+    local file_name
+    if last_slash_idx > 0 then
+        dir_path = normalized_path:sub(1, last_slash_idx - 1)
+        file_name = normalized_path:sub(last_slash_idx + 1)
+    else
+        -- No slashes, so the whole path is the filename, and directory is assumed to be current working directory
+        dir_path = "." -- Use "." to explicitly denote current directory
+        file_name = normalized_path
+    end
+
+    return dir_path, file_name
+end
+
+-- Helper to get filename stem (without extension)
+local function get_filename_stem(filename)
+    -- Find the position of the last dot
+    local last_dot_idx = 0
+    for i = #filename, 1, -1 do
+        if filename:sub(i, i) == "." then
+            last_dot_idx = i
+            break
+        end
+    end
+
+    if last_dot_idx > 0 then
+        -- Return substring from start to just before the last dot
+        return filename:sub(1, last_dot_idx - 1)
+    else
+        -- No dot, so the whole filename is the stem
+        return filename
+    end
+end
+
+
 -- Helper function to truncate or wrap long paths, and handle last folder name display
 local function format_path(path, max_width, full_display_mode)
     -- Add a check to ensure 'path' is a string
@@ -136,7 +183,7 @@ local function format_path(path, max_width, full_display_mode)
     if not full_display_mode then
         -- Remove trailing slashes/backslashes before extracting the last component
         local cleaned_path = path:gsub("[/\\]+$", "")
-        
+
         -- Use string.match to extract the last component after a slash or backslash,
         -- or the entire string if no separators are present.
         local last_component = string.match(cleaned_path, "[^/\\]*$")
@@ -238,7 +285,6 @@ local function save_vault_data()
             local success, write_err = pcall(file.write, file, json_string)
             file:close()
             if success then
-                vim.notify("Successfully wrote JSON data to: " .. json_file_path, vim.log.levels.INFO)
                 return true
             else
                 vim.notify("Error during file write operation: " .. (write_err or "unknown error"), vim.log.levels.ERROR)
@@ -358,7 +404,7 @@ function M.ShowVaultMenu()
         end
         return lines, line_map
     end
-    
+
     -- Generate full display info for initial calculation
     all_vault_lines, vault_line_map = generate_full_vault_display_info()
 
@@ -578,7 +624,7 @@ function M.ShowVaultMenu()
         end
 
         local default_path = vim.fn.getcwd()
-        
+
         vim.ui.input({
             prompt = "Enter new vault path: ",
             default = default_path
@@ -657,6 +703,7 @@ function M.ShowVaultMenu()
                 table.sort(M.available_vault_numbers)
 
                 if save_vault_data() then
+                    vim.api.nvim_out_write("\n")
                     vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_path), vim.log.levels.INFO)
                     if M.last_selected_vault and M.last_selected_vault.vaultNumber == vault_number then
                         M.last_selected_vault = nil
@@ -790,10 +837,10 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
     local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. file_to_open.fileName)
     close_all_menus() -- Close file menu
     vim.cmd("edit " .. vim.fn.fnameescape(full_file_path))
-    
+
     -- Get the current buffer for the opened file
     local current_buf = vim.api.nvim_get_current_buf()
-    
+
     -- Clear any existing BufLeave autocommands for this buffer to prevent duplicates
     vim.api.nvim_exec_autocmds('BufLeave', { buffer = current_buf, group = vault_file_autocmd_grp })
 
@@ -825,7 +872,7 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
         target_line = file_to_open.line or 1
         target_col = file_to_open.col or 0
     end
-    
+
     vim.api.nvim_win_set_cursor(0, {target_line, target_col})
     vim.cmd("normal! zz")
 
@@ -941,7 +988,7 @@ function M.ShowFileMenu(vault_object)
             sort_text = "Sort: Updated (s)"
         end
         table.insert(display_lines, sort_text)
-        
+
         -- Display current file path display mode
         local file_path_display_text = ""
         if M.file_menu_full_path_display_mode then
@@ -1041,8 +1088,8 @@ function M.ShowFileMenu(vault_object)
         }, function(relative_path)
             if relative_path and relative_path ~= "" then
                 local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. relative_path)
-                
-                local parent_dir = vim.fn.fnamodify(full_file_path, ":h")
+
+                local parent_dir, _ = get_file_and_dir_from_path(full_file_path)
                 if vim.fn.isdirectory(parent_dir) == 0 then
                     local confirm_create_dir = vim.fn.confirm("Parent directory '" .. parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
                     if confirm_create_dir == 1 then
@@ -1108,8 +1155,8 @@ function M.ShowFileMenu(vault_object)
                     vim.notify("Error: Target file/directory already exists: " .. new_full_path, vim.log.levels.ERROR)
                     return
                 end
-                
-                local new_parent_dir = vim.fn.fnamodify(new_full_path, ":h")
+
+                local new_parent_dir, _ = get_file_and_dir_from_path(new_full_path)
                 if vim.fn.isdirectory(new_parent_dir) == 0 then
                      local confirm_create_dir = vim.fn.confirm("Parent directory '" .. new_parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
                     if confirm_create_dir == 1 then
@@ -1169,6 +1216,7 @@ function M.ShowFileMenu(vault_object)
                         vault_object.lastSelectedFile = nil
                     end
 
+                    vim.api.nvim_out_write("\n")
                     if save_vault_data() then
                         vim.notify(string.format("File '%s' deleted from vault #%d data.", file_to_delete.fileName, vault_object.vaultNumber), vim.log.levels.INFO)
                         refresh_file_menu()
@@ -1266,7 +1314,6 @@ local notes_editor_autocmd_grp = vim.api.nvim_create_augroup('VaultNotesEditorAu
 
 
 function M.EditFileNotes(vault_object, file_entry)
-    vim.notify("Entering M.EditFileNotes for vault: " .. vault_object.vaultNumber .. ", file: " .. file_entry.fileName, vim.log.levels.INFO)
     close_all_menus()
 
     if not vault_object or not file_entry then
@@ -1275,7 +1322,7 @@ function M.EditFileNotes(vault_object, file_entry)
     end
 
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
-    
+
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
         relative = 'editor',
         width = math.floor(vim.o.columns * 0.8),
@@ -1303,7 +1350,7 @@ function M.EditFileNotes(vault_object, file_entry)
         note_lines = vim.split(file_entry.notes, "\n", {plain=true})
     end
     vim.api.nvim_buf_set_lines(notes_editor_buf, 0, -1, false, note_lines)
-    
+
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modified', false)
 
     vim.api.nvim_win_set_cursor(notes_editor_win, {1,0})
@@ -1313,11 +1360,11 @@ function M.EditFileNotes(vault_object, file_entry)
         vim.notify("Attempting to save notes and close editor.", vim.log.levels.INFO)
         if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
             local current_notes_content = table.concat(vim.api.nvim_buf_get_lines(notes_editor_buf, 0, -1, false), "\n")
-            
+
             -- Retrieve identifiers
             local vault_num_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'vault_number_id')
             local file_name_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'file_name_id')
-            
+
             vim.notify("Retrieved IDs: Vault=" .. tostring(vault_num_id) .. ", File='" .. tostring(file_name_id) .. "'", vim.log.levels.INFO)
 
             local target_vault = nil
@@ -1358,7 +1405,7 @@ function M.EditFileNotes(vault_object, file_entry)
         else
             vim.notify("Notes editor buffer is invalid. Skipping save.", vim.log.levels.WARN)
         end
-        
+
         -- Always close the window/buffer regardless of whether changes were saved
         if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
             vim.api.nvim_win_close(notes_editor_win, true)
@@ -1369,7 +1416,7 @@ function M.EditFileNotes(vault_object, file_entry)
         -- Clear module-level references
         notes_editor_win = nil
         notes_editor_buf = nil
-        
+
         -- Ensure any autocmds specific to this buffer are cleared now that the buffer is gone
         vim.api.nvim_del_augroup_by_name('VaultNotesEditorAutoCommands')
         vim.api.nvim_create_augroup('VaultNotesEditorAutoCommands', { clear = true })
@@ -1405,7 +1452,7 @@ function M.EditFileNotes(vault_object, file_entry)
     -- Insert mode mappings: 'jk' and '<Esc>' will ONLY exit insert mode, allowing normal mode editing.
     vim.keymap.set('i', 'jk', function() vim.cmd("stopinsert") end, opts_insert)
     vim.keymap.set('i', '<Esc>', function() vim.cmd("stopinsert") end, opts_insert)
-    
+
     -- Disabled keys for notes editor. No keys related to basic editing or navigation should be disabled.
     -- These are very specific commands that might conflict with the floating window's management.
     local disabled_keys_notes_editor = {
@@ -1522,7 +1569,7 @@ function M.ShowNotesMenu(vault_object)
             sort_text = "Sort: Updated (s)"
         end
         table.insert(display_lines, sort_text)
-        
+
         -- Display current file path display mode
         local notes_path_display_text = ""
         if M.notes_menu_full_path_display_mode then
@@ -1700,7 +1747,7 @@ end
 -- New function to open the Notes Menu for a specified vault number or the last selected one
 function M.OpenVaultNotesMenu(vault_num_str)
     local target_vault = nil
-    
+
     if vault_num_str and vault_num_str ~= "" then
         local vault_number = tonumber(vault_num_str)
         if not vault_number then
@@ -1849,6 +1896,7 @@ function M.DeleteVaultByNumber(vault_num_str)
                 table.insert(M.available_vault_numbers, vault_number)
                 table.sort(M.available_vault_numbers)
 
+                vim.api.nvim_out_write("\n")
                 if save_vault_data() then
                     vim.notify(string.format("Vault #%d (%s) deleted successfully.", vault_number, vault_path), vim.log.levels.INFO)
                     if M.last_selected_vault and M.last_selected_vault.vaultNumber == vault_number then
@@ -1918,6 +1966,25 @@ function M.AddCurrentFileToVault()
         return
     end
 
+    -- Re-point M.last_selected_vault to the current object in M.vaults after read_vault_data_into_M()
+    -- This is crucial because read_vault_data_into_M() re-assigns M.vaults with new tables.
+    local current_vault_in_M_vaults = nil
+    if M.last_selected_vault then
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                current_vault_in_M_vaults = vault
+                break
+            end
+        end
+    end
+
+    if not current_vault_in_M_vaults then
+        vim.notify("Error: No valid vault selected or vault disappeared. Please select a vault first.", vim.log.levels.ERROR)
+        M.last_selected_vault = nil -- Clear stale reference
+        return
+    end
+    M.last_selected_vault = current_vault_in_M_vaults -- Re-point to the freshest object
+
     local current_file_path = vim.api.nvim_buf_get_name(0)
     if current_file_path == "" then
         vim.notify("No file is currently open or buffer has no name. Cannot add to vault.", vim.log.levels.WARN)
@@ -1977,6 +2044,24 @@ function M.VaultFileNext()
         return
     end
 
+    -- Re-point M.last_selected_vault to the current object in M.vaults after read_vault_data_into_M()
+    local current_vault_in_M_vaults = nil
+    if M.last_selected_vault then
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                current_vault_in_M_vaults = vault
+                break
+            end
+        end
+    end
+
+    if not current_vault_in_M_vaults then
+        vim.notify("Error: No valid vault selected or vault disappeared. Please select a vault first.", vim.log.levels.ERROR)
+        M.last_selected_vault = nil -- Clear stale reference
+        return
+    end
+    M.last_selected_vault = current_vault_in_M_vaults -- Re-point to the freshest object
+
     local files_in_vault = M.last_selected_vault.files
     if #files_in_vault == 0 then
         vim.notify("No files in the current vault.", vim.log.levels.INFO)
@@ -2017,7 +2102,8 @@ function M.VaultFileNext()
     local next_file_entry = files_in_vault[next_idx]
 
     if next_file_entry then
-        M.open_file_entry(M.last_selected_vault, next_file_entry)
+        -- Fix: Pass all 4 required parameters to open_file_entry
+        M.open_file_entry(M.last_selected_vault, next_file_entry, next_idx, files_in_vault)
     else
         vim.notify("Could not find next file. Perhaps the vault file list is empty.", vim.log.levels.ERROR)
     end
@@ -2031,6 +2117,24 @@ function M.RemoveCurrentFileFromVault()
         vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
         return
     end
+
+    -- Re-point M.last_selected_vault to the current object in M.vaults after read_vault_data_into_M()
+    local current_vault_in_M_vaults = nil
+    if M.last_selected_vault then
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                current_vault_in_M_vaults = vault
+                break
+            end
+        end
+    end
+
+    if not current_vault_in_M_vaults then
+        vim.notify("Error: No valid vault selected or vault disappeared. Please select a vault first.", vim.log.levels.ERROR)
+        M.last_selected_vault = nil -- Clear stale reference
+        return
+    end
+    M.last_selected_vault = current_vault_in_M_vaults -- Re-point to the freshest object
 
     local current_file_path = vim.api.nvim_buf_get_name(0)
     if current_file_path == "" then
@@ -2075,6 +2179,7 @@ function M.RemoveCurrentFileFromVault()
                 if M.last_selected_vault.lastSelectedFile == relative_path then
                     M.last_selected_vault.lastSelectedFile = nil
                 end
+                vim.api.nvim_out_write("\n")
                 if save_vault_data() then
                     vim.notify(string.format("File '%s' removed from vault '%s'.", relative_path, M.last_selected_vault.vaultPath), vim.log.levels.INFO)
                 else
@@ -2138,7 +2243,7 @@ function M.OpenCurrentFileNotes()
     if relative_path:sub(1,1) == "/" then
         relative_path = relative_path:sub(2)
     end
-    
+
     if relative_path == "" then
         vim.notify("You are currently in the vault's root directory. Please open a specific file within the vault to edit its notes.", vim.log.levels.INFO)
         return
@@ -2239,6 +2344,7 @@ function M.DeleteCurrentFileNotes()
             found_file_entry.notes = ""
             found_file_entry.lastUpdated = os.time()
             if save_vault_data() then
+                vim.api.nvim_out_write("\n")
                 vim.notify("Notes for '" .. found_file_entry.fileName .. "' deleted successfully.", vim.log.levels.INFO)
 
                 -- Refresh the notes editor if it's currently open and displaying these notes
@@ -2312,7 +2418,7 @@ function M.ExportCurrentFileNotes()
     if relative_path:sub(1,1) == "/" then
         relative_path = relative_path:sub(2)
     end
-    
+
     if relative_path == "" then
         vim.notify("You are currently in the vault's root directory. Please open a specific file within the vault to export its notes.", vim.log.levels.INFO)
         return
@@ -2331,40 +2437,16 @@ function M.ExportCurrentFileNotes()
         return
     end
 
-    -- Changed INFO to WARN here as requested
     if found_file_entry.notes == "" then
         vim.notify("No notes found for '" .. found_file_entry.fileName .. "'. Nothing to export.", vim.log.levels.WARN)
         return
-    end
-
-    -- Helper to get filename and parent directory for Lua string manipulation
-    local function get_file_and_dir_from_path(full_path)
-        local path_sep = string.sub(package.config, 1, 1)
-        local last_sep_pos = math.max(full_path:find(path_sep .. '[^' .. path_sep .. ']*$') or 0, full_path:find('/[^/]*$') or 0, full_path:find('\\[^\\]*$') or 0)
-
-        local dir = full_path
-        local filename = full_path
-        if last_sep_pos > 0 then
-            dir = full_path:sub(1, last_sep_pos - 1)
-            filename = full_path:sub(last_sep_pos + 1)
-        end
-        return dir, filename
-    end
-
-    local function get_filename_stem(filename)
-        local dot_pos = filename:find("%.[^%.]*$")
-        if dot_pos then
-            return filename:sub(1, dot_pos - 1)
-        else
-            return filename
-        end
     end
 
     -- Construct default export path using Lua string manipulation
     local _, current_filename = get_file_and_dir_from_path(current_file_path)
     local current_file_stem = get_filename_stem(current_filename)
     local default_export_filename = current_file_stem .. "_notes.txt"
-    
+
     local path_separator = string.sub(package.config, 1, 1)
     local default_export_path = vim.fn.expand(vim.fn.getcwd() .. path_separator .. default_export_filename)
 
@@ -2374,7 +2456,6 @@ function M.ExportCurrentFileNotes()
     }, function(export_path)
         if export_path and export_path ~= "" then
             local expanded_export_path = vim.fn.expand(export_path)
-            -- Use Lua string manipulation for parent_dir
             local parent_dir, _ = get_file_and_dir_from_path(expanded_export_path)
 
             if vim.fn.isdirectory(parent_dir) == 0 then
@@ -2405,4 +2486,3 @@ end
 
 
 return M
-
