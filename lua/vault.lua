@@ -572,7 +572,7 @@ function M.ShowVaultMenu()
         row = (vim.o.lines - MAIN_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'rounded',
-        title = ' Vault Manager ',
+        title = ' Vault ',
         title_pos = 'center'
     })
 
@@ -1243,7 +1243,7 @@ function M.ShowFileMenu(vault_object)
         row = (vim.o.lines - FILE_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'rounded',
-        title = ' Files in Vault: ' .. (last_folder_name or "N/A"),
+        title = ' Files in vault: ' .. (last_folder_name or "N/A"),
         title_pos = 'center'
     })
 
@@ -1693,7 +1693,7 @@ function M.ShowNotesMenu(vault_object)
         row = (vim.o.lines - NOTES_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'rounded',
-        title = ' Notes in Vault: ' .. (last_folder_name or "N/A"),
+        title = ' Notes in vault: ' .. (last_folder_name or "N/A"),
         title_pos = 'center'
     })
 
@@ -1744,7 +1744,7 @@ function M.ShowNotesMenu(vault_object)
     })
 end
 
--- New function to open the Notes Menu for a specified vault number or the last selected one
+-- Open the Notes Menu for a specified vault number or the last selected one
 function M.OpenVaultNotesMenu(vault_num_str)
     local target_vault = nil
 
@@ -1792,7 +1792,7 @@ function M.OpenVaultNotesMenu(vault_num_str)
     M.ShowNotesMenu(target_vault)
 end
 
--- New Function to open the Files Menu for a specified vault number or the last selected one
+-- Open the Files Menu for a specified vault number or the last selected one
 function M.OpenVaultFilesMenu(vault_num_str)
     read_vault_data_into_M()
     local target_vault = nil
@@ -1841,7 +1841,7 @@ function M.OpenVaultFilesMenu(vault_num_str)
     M.ShowFileMenu(target_vault)
 end
 
--- Function to open a vault by its number
+-- Open a vault by its number
 function M.EnterVaultByNumber(vault_num_str)
     read_vault_data_into_M()
     local vault_number = tonumber(vault_num_str)
@@ -1868,7 +1868,7 @@ function M.EnterVaultByNumber(vault_num_str)
     end
 end
 
--- Function to delete a vault by its number
+-- Delete a vault by its number
 function M.DeleteVaultByNumber(vault_num_str)
     read_vault_data_into_M()
     local vault_number = tonumber(vault_num_str)
@@ -1913,7 +1913,7 @@ function M.DeleteVaultByNumber(vault_num_str)
     end
 end
 
--- Function to create a new vault with the current working directory
+-- Create a new vault with the current working directory
 function M.CreateVaultWithCwd()
     read_vault_data_into_M()
 
@@ -1951,13 +1951,13 @@ function M.CreateVaultWithCwd()
 
     if save_vault_data() then
         M.last_selected_vault = new_vault
-        vim.notify("Vault created for current directory: " .. current_cwd, vim.log.levels.INFO)
+        vim.notify("Vault created for current working directory: " .. current_cwd, vim.log.levels.INFO)
     else
-        vim.notify("Error creating vault for current directory.", vim.log.levels.ERROR)
+        vim.notify("Error creating vault for current working directory.", vim.log.levels.ERROR)
     end
 end
 
--- Function to add the current file to the selected vault
+-- Add the current file to the selected vault
 function M.AddCurrentFileToVault()
     read_vault_data_into_M()
 
@@ -2035,7 +2035,7 @@ function M.AddCurrentFileToVault()
     end
 end
 
--- Function to go to the next file in the selected vault
+-- Go to the next file in the selected vault
 function M.VaultFileNext()
     read_vault_data_into_M()
 
@@ -2109,7 +2109,7 @@ function M.VaultFileNext()
     end
 end
 
--- Function to remove the current file from the selected vault
+-- Remove the current file from the selected vault
 function M.RemoveCurrentFileFromVault()
     read_vault_data_into_M()
 
@@ -2192,7 +2192,7 @@ function M.RemoveCurrentFileFromVault()
     end
 end
 
--- Function to open the notes editor for the current file, if it's in the selected vault
+-- Open the notes editor for the current file, if it's in the selected vault
 function M.OpenCurrentFileNotes()
     -- Ensure vault data is up-to-date
     read_vault_data_into_M()
@@ -2264,7 +2264,7 @@ function M.OpenCurrentFileNotes()
     end
 end
 
---- New function to delete all note content for the current file.
+--- Delete all note content for the current file.
 function M.DeleteCurrentFileNotes()
     read_vault_data_into_M()
 
