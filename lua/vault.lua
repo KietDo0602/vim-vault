@@ -1,9 +1,10 @@
 local json = require("lib.dkjson")
 local CONSTANT = require('constant')
+local helper = require('helper')
 
 local M = {}
 
--- Function to read vault data from JSON file (now populates M.vaults directly)
+-- Function to read vault data from JSON file (populates M.vaults directly)
 local function read_vault_data_into_M()
     local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
     local file, err = io.open(json_file_path, "r")
@@ -108,25 +109,9 @@ local NOTES_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed
 local NOTES_MENU_HEIGHT = NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_FOOTER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT
 
 
--- Helper function to format timestamp
-local function format_timestamp(timestamp)
-    return os.date("%Y-%m-%d %H:%M", timestamp)
-end
-
--- Helper for path normalization
-local function normalize_path(path)
-    -- Replace backslashes with forward slashes
-    local normalized = path:gsub("\\", "/")
-    -- Remove trailing slash unless it's the root directory "/"
-    if #normalized > 1 and normalized:sub(#normalized) == "/" then
-        normalized = normalized:sub(1, #normalized - 1)
-    end
-    return normalized
-end
-
 -- Helper to get filename and parent directory from a full path using standard Lua string functions
 local function get_file_and_dir_from_path(full_path)
-    local normalized_path = full_path:gsub("\\", "/") -- Normalize to forward slashes
+    local normalized_path = helper.normalize_path(full_path)
 
     local last_slash_idx = 0
     -- Iterate backward to find the last slash
@@ -151,26 +136,6 @@ local function get_file_and_dir_from_path(full_path)
     return dir_path, file_name
 end
 
--- Helper to get filename stem (without extension)
-local function get_filename_stem(filename)
-    -- Find the position of the last dot
-    local last_dot_idx = 0
-    for i = #filename, 1, -1 do
-        if filename:sub(i, i) == "." then
-            last_dot_idx = i
-            break
-        end
-    end
-
-    if last_dot_idx > 0 then
-        -- Return substring from start to just before the last dot
-        return filename:sub(1, last_dot_idx - 1)
-    else
-        -- No dot, so the whole filename is the stem
-        return filename
-    end
-end
-
 
 -- Helper function to truncate or wrap long paths, and handle last folder name display
 local function format_path(path, max_width, full_display_mode)
@@ -182,7 +147,7 @@ local function format_path(path, max_width, full_display_mode)
     local display_path = path
     if not full_display_mode then
         -- Remove trailing slashes/backslashes before extracting the last component
-        local cleaned_path = path:gsub("[/\\]+$", "")
+        local cleaned_path = helper.normalize_path(path)
 
         -- Use string.match to extract the last component after a slash or backslash,
         -- or the entire string if no separators are present.
@@ -238,37 +203,6 @@ local function format_path(path, max_width, full_display_mode)
     return lines
 end
 
--- Helper function to sort the vaults table based on the current sort order
-local function sort_vaults(vaults_table, sort_order)
-    if sort_order == 0 then -- Sort by vaultNumber (default: ascending)
-        table.sort(vaults_table, function(a, b)
-            return a.vaultNumber < b.vaultNumber
-        end)
-    elseif sort_order == 1 then -- Sort by lastUpdated (descending: most recent first)
-        table.sort(vaults_table, function(a, b)
-            return a.lastUpdated > b.lastUpdated
-        end)
-    elseif sort_order == 2 then -- Sort by vaultPath (alphabetical: ascending)
-        table.sort(vaults_table, function(a, b)
-            return a.vaultPath < b.vaultPath
-        end)
-    end
-end
-
--- Helper function to sort the files table based on the current sort order
--- 0: fileName (alphabetical), 1: lastUpdated (desc)
-local function sort_files(files_table, sort_order)
-    if sort_order == 0 then -- Sort by fileName (alphabetical: ascending)
-        table.sort(files_table, function(a, b)
-            return a.fileName < b.fileName
-        end)
-    elseif sort_order == 1 then -- Sort by lastUpdated (descending: most recent first)
-        table.sort(files_table, function(a, b)
-            return a.lastUpdated > b.lastUpdated
-        end)
-    end
-end
-
 
 -- Helper to save data to JSON file
 local function save_vault_data()
@@ -313,12 +247,12 @@ local function close_all_menus()
         file_menu_win = nil
         file_menu_buf = nil
     end
-    if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then -- New: Close notes menu
+    if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then -- Close notes menu
         vim.api.nvim_win_close(notes_menu_win, true)
         notes_menu_win = nil
         notes_menu_buf = nil
     end
-    if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then -- New: Close notes editor
+    if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then -- Close notes editor
         vim.api.nvim_win_close(notes_editor_win, true)
         notes_editor_win = nil
         notes_editor_buf = nil
@@ -338,7 +272,7 @@ function M.ShowVaultMenu()
     read_vault_data_into_M()
 
     -- Apply sorting based on the current module-level sort order
-    sort_vaults(M.vaults, M.current_sort_order)
+    helper.sort_vaults(M.vaults, M.current_sort_order)
 
     -- Menu state variables (local to this invocation of ShowVaultMenu, captured by closures)
     local current_selected_vault_idx = 0 -- Default to no selection initially
@@ -348,9 +282,9 @@ function M.ShowVaultMenu()
     local highlight_ns_id = vim.api.nvim_create_namespace('vault_menu_highlight')
 
     -- Determine default selection: vault matching current CWD
-    local current_cwd = normalize_path(vim.fn.getcwd())
+    local current_cwd = helper.normalize_path(vim.fn.getcwd())
     for i, vault in ipairs(M.vaults) do
-        if normalize_path(vault.vaultPath) == current_cwd then
+        if helper.normalize_path(vault.vaultPath) == current_cwd then
             current_selected_vault_idx = i
             break
         end
@@ -375,7 +309,7 @@ function M.ShowVaultMenu()
 
         for i, vault in ipairs(M.vaults) do -- It iterates M.vaults
             local formatted_paths = format_path(vault.vaultPath, path_max_width, M.full_path_display_mode)
-            local timestamp = format_timestamp(vault.lastUpdated)
+            local timestamp = helper.format_timestamp(vault.lastUpdated)
 
             local start_line_for_vault = current_line_idx
 
@@ -801,12 +735,12 @@ local function save_file_position_to_json(file_path_to_save)
     local current_col = vim.api.nvim_win_get_cursor(0)[2]
 
     for _, vault in ipairs(M.vaults) do
-        local normalized_vault_path = normalize_path(vault.vaultPath)
+        local normalized_vault_path = helper.normalize_path(vault.vaultPath)
         if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
             normalized_vault_path = normalized_vault_path .. "/"
         end
 
-        local normalized_file_path = normalize_path(file_path_to_save)
+        local normalized_file_path = helper.normalize_path(file_path_to_save)
         
         if normalized_file_path:sub(1, #normalized_vault_path) == normalized_vault_path then
             local relative_path = normalized_file_path:sub(#normalized_vault_path + 1)
@@ -815,7 +749,7 @@ local function save_file_position_to_json(file_path_to_save)
             end
 
             for _, file_entry in ipairs(vault.files) do
-                if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+                if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
                     file_entry.line = current_line
                     file_entry.col = current_col
                     file_entry.lastUpdated = os.time()
@@ -873,7 +807,38 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
         target_col = file_to_open.col or 0
     end
 
-    vim.api.nvim_win_set_cursor(0, {target_line, target_col})
+    -- Validate cursor position before setting it
+    local total_lines = vim.api.nvim_buf_line_count(current_buf)
+    if target_line < 1 then
+        target_line = 1
+    elseif target_line > total_lines then
+        target_line = total_lines
+    end
+
+    -- Get the length of the target line to validate column position
+    local line_content = ""
+    if total_lines > 0 then
+        local lines = vim.api.nvim_buf_get_lines(current_buf, target_line - 1, target_line, false)
+        if #lines > 0 then
+            line_content = lines[1]
+        end
+    end
+
+    -- Validate column position
+    if target_col < 0 then
+        target_col = 0
+    elseif target_col > #line_content then
+        target_col = #line_content
+    end
+
+    -- Safely set cursor position with error handling
+    local success, err = pcall(vim.api.nvim_win_set_cursor, 0, {target_line, target_col})
+    if not success then
+        -- Fallback to safe position if there's still an error
+        vim.notify("Warning: Could not set cursor to stored position. Using line 1, column 0.", vim.log.levels.WARN)
+        vim.api.nvim_win_set_cursor(0, {1, 0})
+    end
+
     vim.cmd("normal! zz")
 
     -- Update last selected file in the vault object and save data
@@ -881,7 +846,6 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
     vault_object.lastUpdated = os.time()
     save_vault_data()
 end
-
 
 function M.ShowFileMenu(vault_object)
     close_all_menus()
@@ -892,7 +856,7 @@ function M.ShowFileMenu(vault_object)
     end
 
     local files_in_vault = vim.deepcopy(vault_object.files)
-    sort_files(files_in_vault, current_file_sort_order)
+    helper.sort_files(files_in_vault, current_file_sort_order)
 
     local current_selected_file_idx = 1
     local current_file_scroll_top_line_idx = 0
@@ -926,7 +890,7 @@ function M.ShowFileMenu(vault_object)
 
         for i, file_entry in ipairs(files_in_vault) do
             local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode)
-            local timestamp = format_timestamp(file_entry.lastUpdated)
+            local timestamp = helper.format_timestamp(file_entry.lastUpdated)
 
             local start_line_for_file = current_line_idx
 
@@ -1274,7 +1238,7 @@ function M.ShowFileMenu(vault_object)
     -- Key mapping for sorting files
     vim.keymap.set('n', 's', function()
         current_file_sort_order = (current_file_sort_order + 1) % 2
-        sort_files(files_in_vault, current_file_sort_order)
+        helper.sort_files(files_in_vault, current_file_sort_order)
         update_file_menu_display()
     end, opts)
 
@@ -1474,7 +1438,7 @@ function M.ShowNotesMenu(vault_object)
     end
 
     local files_in_vault = vim.deepcopy(vault_object.files)
-    sort_files(files_in_vault, M.current_notes_sort_order)
+    helper.sort_files(files_in_vault, M.current_notes_sort_order)
 
     local current_selected_file_idx = 1
     local current_notes_scroll_top_line_idx = 0
@@ -1507,7 +1471,7 @@ function M.ShowNotesMenu(vault_object)
 
         for i, file_entry in ipairs(files_in_vault) do
             local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
-            local timestamp = format_timestamp(file_entry.lastUpdated)
+            local timestamp = helper.format_timestamp(file_entry.lastUpdated)
 
             local start_line_for_file = current_line_idx
 
@@ -1941,7 +1905,7 @@ function M.CreateVaultWithCwd()
 
     -- Check if a vault with this path already exists
     for _, vault in ipairs(M.vaults) do
-        if normalize_path(vault.vaultPath) == normalize_path(current_cwd) then
+        if helper.normalize_path(vault.vaultPath) == helper.normalize_path(current_cwd) then
             vim.notify("A vault for the current directory already exists.", vim.log.levels.WARN)
             return
         end
@@ -1991,10 +1955,10 @@ function M.AddCurrentFileToVault()
         return
     end
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     -- Resolve current_file_path to its canonical absolute path for robust comparison
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
-    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+    local normalized_current_file_path = helper.normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
@@ -2011,7 +1975,7 @@ function M.AddCurrentFileToVault()
     end
 
     for _, file_entry in ipairs(M.last_selected_vault.files) do
-        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+        if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
             vim.notify(string.format("File '%s' is already in the selected vault.", relative_path), vim.log.levels.INFO)
             return
         end
@@ -2068,12 +2032,12 @@ function M.VaultFileNext()
         return
     end
 
-    sort_files(files_in_vault, current_file_sort_order) -- Ensure sorted order for 'next' logic
+    helper.sort_files(files_in_vault, current_file_sort_order) -- Ensure sorted order for 'next' logic
 
     local current_file_path = vim.api.nvim_buf_get_name(0)
     local current_relative_path = nil
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
     end
@@ -2081,8 +2045,8 @@ function M.VaultFileNext()
     -- Resolve current_file_path to its canonical absolute path for robust comparison
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
 
-    if resolved_current_file_path ~= "" and (normalize_path(resolved_current_file_path):sub(1, #normalized_vault_path) == normalized_vault_path) then
-        current_relative_path = normalize_path(resolved_current_file_path):sub(#normalized_vault_path + 1)
+    if resolved_current_file_path ~= "" and (helper.normalize_path(resolved_current_file_path):sub(1, #normalized_vault_path) == normalized_vault_path) then
+        current_relative_path = helper.normalize_path(resolved_current_file_path):sub(#normalized_vault_path + 1)
         if current_relative_path:sub(1,1) == "/" then
             current_relative_path = current_relative_path:sub(2)
         end
@@ -2091,7 +2055,7 @@ function M.VaultFileNext()
     local current_idx_in_list = -1
     if current_relative_path then
         for i, file_entry in ipairs(files_in_vault) do
-            if normalize_path(file_entry.fileName) == normalize_path(current_relative_path) then
+            if helper.normalize_path(file_entry.fileName) == helper.normalize_path(current_relative_path) then
                 current_idx_in_list = i
                 break
             end
@@ -2142,10 +2106,10 @@ function M.RemoveCurrentFileFromVault()
         return
     end
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     -- Resolve current_file_path to its canonical absolute path for robust comparison
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
-    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+    local normalized_current_file_path = helper.normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
@@ -2163,7 +2127,7 @@ function M.RemoveCurrentFileFromVault()
 
     local found_idx = nil
     for i, file_entry in ipairs(M.last_selected_vault.files) do
-        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+        if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
             found_idx = i
             break
         end
@@ -2225,10 +2189,10 @@ function M.OpenCurrentFileNotes()
         return
     end
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     -- Resolve current_file_path to its canonical absolute path for robust comparison
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
-    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+    local normalized_current_file_path = helper.normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
@@ -2251,7 +2215,7 @@ function M.OpenCurrentFileNotes()
 
     local found_file_entry = nil
     for _, file_entry in ipairs(M.last_selected_vault.files) do
-        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+        if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
             found_file_entry = file_entry
             break
         end
@@ -2296,9 +2260,9 @@ function M.DeleteCurrentFileNotes()
         return
     end
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
-    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+    local normalized_current_file_path = helper.normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
@@ -2321,7 +2285,7 @@ function M.DeleteCurrentFileNotes()
 
     local found_file_entry = nil
     for _, file_entry in ipairs(M.last_selected_vault.files) do
-        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+        if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
             found_file_entry = file_entry
             break
         end
@@ -2401,9 +2365,9 @@ function M.ExportCurrentFileNotes()
         return
     end
 
-    local normalized_vault_path = normalize_path(M.last_selected_vault.vaultPath)
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
     local resolved_current_file_path = vim.fn.resolve(current_file_path)
-    local normalized_current_file_path = normalize_path(resolved_current_file_path)
+    local normalized_current_file_path = helper.normalize_path(resolved_current_file_path)
 
     if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
         normalized_vault_path = normalized_vault_path .. "/"
@@ -2426,7 +2390,7 @@ function M.ExportCurrentFileNotes()
 
     local found_file_entry = nil
     for _, file_entry in ipairs(M.last_selected_vault.files) do
-        if normalize_path(file_entry.fileName) == normalize_path(relative_path) then
+        if helper.normalize_path(file_entry.fileName) == helper.normalize_path(relative_path) then
             found_file_entry = file_entry
             break
         end
@@ -2444,7 +2408,7 @@ function M.ExportCurrentFileNotes()
 
     -- Construct default export path using Lua string manipulation
     local _, current_filename = get_file_and_dir_from_path(current_file_path)
-    local current_file_stem = get_filename_stem(current_filename)
+    local current_file_stem = helper.get_filename_stem(current_filename)
     local default_export_filename = current_file_stem .. "_notes.txt"
 
     local path_separator = string.sub(package.config, 1, 1)
