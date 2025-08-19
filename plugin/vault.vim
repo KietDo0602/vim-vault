@@ -1,13 +1,16 @@
-" Last Change:  2024 Jan 15
+" Last Change:  2025 Feb 11
 " Maintainer:   Kiet Do <kietdo0602@gmail.com>
 " License:      GNU General Public License v3.0
 
 if exists('g:loaded_vault') | finish | endif " prevent loading file twice
+let g:loaded_vault = 1
 
 let s:save_cpo = &cpo
 set cpo&vim
 
-" hi VaultCursorLine ctermbg=238 cterm=none
+" ─────────────────────────────────────────────
+" Vim-Vault Commands
+" ─────────────────────────────────────────────
 
 command! Vaults lua require'vault'.ShowVaultMenu()
 command! -nargs=1 VaultEnter lua require'vault'.EnterVaultByNumber(<f-args>)
@@ -21,4 +24,7 @@ command! -nargs=? VaultNotes lua require'vault'.OpenVaultNotesMenu(<f-args>)
 command! VaultNoteOpen lua require'vault'.OpenCurrentFileNotes()
 command! VaultNoteDelete lua require'vault'.DeleteCurrentFileNotes()
 command! VaultNoteExport lua require'vault'.ExportCurrentFileNotes()
+command! VaultTest lua require'vault'.open_fallout_menu()
 
+let &cpo = s:save_cpo
+unlet s:save_cpo

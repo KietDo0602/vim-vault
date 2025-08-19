@@ -19,9 +19,6 @@ local function read_vault_data_into_M()
         else
             vim.notify("Error decoding JSON from file: " .. (decoded_data or "unknown error") .. ". Initializing with empty data.", vim.log.levels.ERROR)
         end
-    else
-        vim.notify("JSON file not found or could not be read: " .. (err or "unknown error") .. ". Creating new vaults file on first save.", vim.log.levels.INFO)
-        -- save_vault_data will create it with defaults on first write if it doesn't exist.
     end
 
     M.vaults = data.vaults or {}
@@ -41,7 +38,6 @@ local function read_vault_data_into_M()
     end
     return true
 end
-
 
 -- Module-level state to persist sort order across menu re-opens
 -- 0: vaultNumber (default), 1: lastUpdated (desc), 2: vaultPath (alpha)
@@ -314,7 +310,7 @@ function M.ShowVaultMenu()
             local start_line_for_vault = current_line_idx
 
             -- First line with vault number and timestamp
-            local first_line = string.format("%-8d %-40s %-20s",
+            local first_line = string.format("%-10d %-45s %-20s",
                 vault.vaultNumber,
                 formatted_paths[1] or "",
                 timestamp
@@ -324,7 +320,7 @@ function M.ShowVaultMenu()
 
             -- Additional lines for wrapped paths (if any)
             for j = 2, #formatted_paths do
-                local continuation_line = string.format("%-8s %-40s %-20s",
+                local continuation_line = string.format("%-10s %-45s %-20s",
                     "",
                     formatted_paths[j],
                     ""
@@ -352,8 +348,8 @@ function M.ShowVaultMenu()
 
         -- Add fixed header lines
         table.insert(display_lines, "")
-        table.insert(display_lines, string.format("%-8s %-40s %-20s", "Number", "Path", "Updated"))
-        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH - 2))
+        table.insert(display_lines, string.format("%-10s %-45s %-20s", "Vault", "Directory Coordinates", "Last Overseer Access"))
+        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
 
         -- Add scrollable vault content
         local num_total_vault_lines = #all_vault_lines
@@ -372,7 +368,7 @@ function M.ShowVaultMenu()
 
         -- Add fixed footer lines
         table.insert(display_lines, "")
-        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH - 2))
+        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
         table.insert(display_lines, "")
 
         -- Display current sort order
@@ -401,6 +397,7 @@ function M.ShowVaultMenu()
         table.insert(display_lines, "Press 'd' to Delete selected vault")
         table.insert(display_lines, "Press 'Enter' to open vault, 'q' to quit")
 
+
         -- Set buffer to modifiable before updating content
         vim.api.nvim_buf_set_option(main_menu_buf, 'modifiable', true)
         -- Set buffer content
@@ -424,7 +421,7 @@ function M.ShowVaultMenu()
 
                 for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
                     if line_num >= MAIN_MENU_HEADER_LINES_COUNT and line_num < MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT then
-                        vim.api.nvim_buf_add_highlight(main_menu_buf, highlight_ns_id, 'Visual', line_num, 0, -1)
+                        vim.api.nvim_buf_add_highlight(main_menu_buf, highlight_ns_id, 'VaultSelected', line_num, 0, -1)
                     end
                 end
             else
@@ -496,8 +493,34 @@ function M.ShowVaultMenu()
         M.ShowVaultMenu()
     end
 
+    -- Fallout-style highlight groups
+    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+        fg = '#00FF00',      -- bright green text
+        bg = '#000000',      -- black background
+        bold = true
+    })
+
+    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+        fg = '#00FF00',
+        bg = '#000000'
+    })
+
+    vim.api.nvim_set_hl(0, 'VaultSelected', {
+      fg = '#000000',     -- black text
+      bg = '#00ff00',     -- bright green background
+      bold = true
+    })
+
     -- Create new buffer and window for the menu
     main_menu_buf = vim.api.nvim_create_buf(false, true)
+
+    -- Ensure true color is enabled
+    vim.opt.termguicolors = true
+
+    -- Define highlight groups
+    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
+    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
+
     main_menu_win = vim.api.nvim_open_win(main_menu_buf, true, {
         relative = 'editor',
         width = MAIN_MENU_WIDTH,
@@ -505,10 +528,14 @@ function M.ShowVaultMenu()
         col = (vim.o.columns - MAIN_MENU_WIDTH) / 2,
         row = (vim.o.lines - MAIN_MENU_HEIGHT) / 2,
         style = 'minimal',
-        border = 'rounded',
-        title = ' Vault ',
+        border = 'double',
+        title = ' Vault Directory ',
         title_pos = 'center'
     })
+
+    -- Apply Fallout-style highlights
+    vim.api.nvim_win_set_option(main_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
+
 
     -- Set buffer options
     vim.api.nvim_buf_set_option(main_menu_buf, 'buftype', 'nofile')
@@ -741,7 +768,7 @@ local function save_file_position_to_json(file_path_to_save)
         end
 
         local normalized_file_path = helper.normalize_path(file_path_to_save)
-        
+
         if normalized_file_path:sub(1, #normalized_vault_path) == normalized_vault_path then
             local relative_path = normalized_file_path:sub(#normalized_vault_path + 1)
             if relative_path:sub(1,1) == "/" then
@@ -985,7 +1012,7 @@ function M.ShowFileMenu(vault_object)
 
             for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
                 if line_num >= FILE_MENU_HEADER_LINES_COUNT and line_num < FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT then
-                    vim.api.nvim_buf_add_highlight(file_menu_buf, highlight_ns_id, 'Visual', line_num, 0, -1)
+                    vim.api.nvim_buf_add_highlight(file_menu_buf, highlight_ns_id, 'VaultSelected', line_num, 0, -1)
                 end
             end
         end
@@ -1197,8 +1224,37 @@ function M.ShowFileMenu(vault_object)
     -- Get the last component of the vault path for the title
     local last_folder_name = format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
 
+
+    -- Fallout-style highlight groups
+    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+        fg = '#00FF00',      -- bright green text
+        bg = '#000000',      -- black background
+        bold = true
+    })
+
+    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+        fg = '#00FF00',
+        bg = '#000000'
+    })
+
+    vim.api.nvim_set_hl(0, 'VaultSelected', {
+      fg = '#000000',     -- black text
+      bg = '#00ff00',     -- bright green background
+      bold = true
+    })
+
+
     -- Create new buffer and window for the file menu
     file_menu_buf = vim.api.nvim_create_buf(false, true)
+
+    -- Ensure true color is enabled
+    vim.opt.termguicolors = true
+
+    -- Define highlight groups
+    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
+    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
+
+
     file_menu_win = vim.api.nvim_open_win(file_menu_buf, true, {
         relative = 'editor',
         width = FILE_MENU_WIDTH,
@@ -1206,10 +1262,13 @@ function M.ShowFileMenu(vault_object)
         col = (vim.o.columns - FILE_MENU_WIDTH) / 2,
         row = (vim.o.lines - FILE_MENU_HEIGHT) / 2,
         style = 'minimal',
-        border = 'rounded',
-        title = ' Files in vault: ' .. (last_folder_name or "N/A"),
+        border = 'double',
+        title = ' Holotape Archives :: ' .. (last_folder_name or "N/A"),
         title_pos = 'center'
     })
+
+    -- Apply Fallout-style highlights
+    vim.api.nvim_win_set_option(file_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
 
     vim.api.nvim_buf_set_option(file_menu_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', false)
@@ -1285,7 +1344,26 @@ function M.EditFileNotes(vault_object, file_entry)
         return
     end
 
+    -- Fallout-style highlight groups
+    vim.api.nvim_set_hl(0, 'FalloutNotes', {
+        fg = '#FFFFFF',      -- white text
+        bg = '#000000',      -- black background
+        bold = true
+    })
+
+    vim.api.nvim_set_hl(0, 'FalloutNotesBorder', {
+        fg = '#FFFFFF',
+        bg = '#000000'
+    })
+
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
+
+    -- Ensure true color is enabled
+    vim.opt.termguicolors = true
+
+    -- Define highlight groups
+    vim.api.nvim_set_hl(0, "FalloutNotes", { fg = "#FFFFFF", bg = "black", bold = true })
+    vim.api.nvim_set_hl(0, "FalloutNotesBorder", { fg = "#FFFFFF", bg = "black" })
 
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
         relative = 'editor',
@@ -1294,10 +1372,14 @@ function M.EditFileNotes(vault_object, file_entry)
         col = (vim.o.columns - math.floor(vim.o.columns * 0.8)) / 2,
         row = (vim.o.lines - math.floor(vim.o.lines * 0.6)) / 2,
         style = 'minimal',
-        border = 'rounded',
-        title = ' Notes for: ' .. file_entry.fileName,
+        border = 'double',
+        title = " Survivor's Journal :: " .. file_entry.fileName,
         title_pos = 'center'
     })
+
+    -- Apply Fallout-style highlights
+    vim.api.nvim_win_set_option(notes_editor_win, "winhl", "Normal:FalloutNotes,FloatBorder:FalloutNotesBorder")
+
 
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)
     vim.api.nvim_buf_set_option(notes_editor_buf, 'bufhidden', 'wipe')
@@ -1564,7 +1646,7 @@ function M.ShowNotesMenu(vault_object)
 
             for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
                 if line_num >= NOTES_MENU_HEADER_LINES_COUNT and line_num < NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT then
-                    vim.api.nvim_buf_add_highlight(notes_menu_buf, highlight_ns_id, 'Visual', line_num, 0, -1)
+                    vim.api.nvim_buf_add_highlight(notes_menu_buf, highlight_ns_id, 'VaultSelected', line_num, 0, -1)
                 end
             end
         end
@@ -1648,7 +1730,33 @@ function M.ShowNotesMenu(vault_object)
 
     local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
 
+    -- Fallout-style highlight groups
+    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+        fg = '#00FF00',      -- bright green text
+        bg = '#000000',      -- black background
+        bold = true
+    })
+
+    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+        fg = '#00FF00',
+        bg = '#000000'
+    })
+
+    vim.api.nvim_set_hl(0, 'VaultSelected', {
+      fg = '#000000',     -- black text
+      bg = '#00ff00',     -- bright green background
+      bold = true
+    })
+
     notes_menu_buf = vim.api.nvim_create_buf(false, true)
+
+    -- Ensure true color is enabled
+    vim.opt.termguicolors = true
+
+    -- Define highlight groups
+    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
+    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
+
     notes_menu_win = vim.api.nvim_open_win(notes_menu_buf, true, {
         relative = 'editor',
         width = NOTES_MENU_WIDTH,
@@ -1656,10 +1764,13 @@ function M.ShowNotesMenu(vault_object)
         col = (vim.o.columns - NOTES_MENU_WIDTH) / 2,
         row = (vim.o.lines - NOTES_MENU_HEIGHT) / 2,
         style = 'minimal',
-        border = 'rounded',
-        title = ' Notes in vault: ' .. (last_folder_name or "N/A"),
+        border = 'double',
+        title = " Field Logs :: " .. (last_folder_name or "N/A"),
         title_pos = 'center'
     })
+
+    -- Apply Fallout-style highlights
+    vim.api.nvim_win_set_option(notes_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
 
     vim.api.nvim_buf_set_option(notes_menu_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
