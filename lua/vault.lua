@@ -536,7 +536,6 @@ function M.ShowVaultMenu()
     -- Apply Fallout-style highlights
     vim.api.nvim_win_set_option(main_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
 
-
     -- Set buffer options
     vim.api.nvim_buf_set_option(main_menu_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(main_menu_buf, 'modifiable', false)

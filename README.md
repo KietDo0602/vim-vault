@@ -6,11 +6,10 @@ Welcome to **vim-vault**, the ultimate file navigation and project management pl
 
 ## ✨ Features (Vault-Tec Certified)
 
-- 📂 Navigate files like a Pip-Boy scans terminals  
+- 📂 Navigate files quickly
 - 🗂️ Bookmark and switch between projects faster than a Nuka-Cola delivery  
-- 🔍 Fuzzy search with precision worthy of a Brotherhood of Steel recon team  
 - 🧠 Smart caching to keep your vault memory sharp  
-- 🛠️ Minimal setup — just plug in and survive  
+- 🛠️ Minimal setup — just plug in to survive the nuclear winter ❄️
 
 ---
 
@@ -21,20 +20,20 @@ Use your favorite plugin manager:
 ### [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```vim
-Plug 'yourusername/vim-vault'
+Plug 'kietdo0602/vim-vault'
 ```
 
 ### [Vundle](https://github.com/VundleVim/Vundle.vim)
 
 ```vim
-Plugin 'yourusername/vim-vault'
+Plugin 'kietdo0602/vim-vault'
 ```
 
 ### [Pathogen](https://github.com/tpope/vim-pathogen)
 
 ```bash
 cd ~/.vim/bundle
-git clone https://github.com/yourusername/vim-vault.git
+git clone https://github.com/kietdo0602/vim-vault.git
 ```
 
 ---
@@ -44,32 +43,44 @@ git clone https://github.com/yourusername/vim-vault.git
 Add this to your `.vimrc` to get started:
 
 ```vim
-" Set the root directory for your vault
-let g:vim_vault_root = '~/Vault101'
+" Change the color of the main menu
+let g:vim_vault_main_menu_background = '#000000'
+let g:vim_vault_main_menu_text = '#FFFFFF'
 
-" Optional: Enable fuzzy search
-let g:vim_vault_fuzzy = 1
+" Change the color of the files menu
+let g:vim_vault_files_menu_background = '#000000'
+let g:vim_vault_files_menu_text = '#FFFFFF'
 
-" Optional: Show hidden files (like secret Enclave logs)
-let g:vim_vault_show_hidden = 0
+" Change the color of the notes menu
+let g:vim_vault_notes_menu_background = '#000000'
+let g:vim_vault_notes_menu_text = '#FFFFFF'
+
+" Set the default sorting / display type
+let g:vim_vault_background = '#000000'
+let g:vim_vault_text = '#FFFFFF'
 ```
 
 ---
 
 ## 🧭 Usage (Survival Guide)
 
-- `:VaultOpen` — Open the vault interface  
-- `:VaultSwitch` — Switch between projects  
-- `:VaultFind <filename>` — Search for a file  
-- `:VaultBookmark <name>` — Bookmark current project  
-- `:VaultList` — List all bookmarks  
+- `:Vaults` — Open the Vaults menu  
+- `:Vault [number]` — Select Vault with number
+- `:VaultCreate` — Create a new Vault with current working directory (cwd) as origin
+- `:VaultDelete [number]` — Delete Vault with id number
+- `:VaultFiles` — Open Files Menu inside the selected Vault
+- `:VaultFileAdd` — Add current file to selected Vault
+- `:VaultFileDelete` — Delete current file from the selected Vault (if exists)
+- `:VaultNotes` — Open the Notes Menu that shows all the Notes inside a Vault for each File.
+- `:VaultNoteOpen` — Open Note of the current File.
+- `:VaultNoteDelete` — Delete note content of the current file
+- `:VaultNoteExport` — Export note of the current file
 
 ---
 
 ## 📦 Requirements
 
 - Vim 8.0+ or Neovim  
-- Optional: [fzf](https://github.com/junegunn/fzf) for fuzzy search  
 - Optional: A Vault Boy bobblehead for good luck 🤖
 
 ---
