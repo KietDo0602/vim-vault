@@ -93,7 +93,7 @@ Pull requests, bug reports, and feature suggestions are welcome! Whether you're 
 
 ## 📄 License
 
-MIT License © [Your Name]  
+MIT License © kietdo0602
 No Rad-X required.
 
 ---

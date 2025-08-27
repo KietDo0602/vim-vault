@@ -85,22 +85,22 @@ read_vault_data_into_M()
 
 -- Constants for main menu layout
 local MAIN_MENU_WIDTH = 80
-local MAIN_MENU_HEADER_LINES_COUNT = 3 -- "", "Number...", "----"
+local MAIN_MENU_HEADER_LINES_COUNT = 10 -- "", "Number...", "----"
 local MAIN_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
 local MAIN_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- You can adjust this value as needed
 local MAIN_MENU_HEIGHT = MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_FOOTER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT
 
 -- Constants for file menu layout
 local FILE_MENU_WIDTH = 80
-local FILE_MENU_HEADER_LINES_COUNT = 3 -- "", "File Name...", "----"
-local FILE_MENU_FOOTER_LINES_COUNT = 7 -- "", "----", "", "Sort: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
+local FILE_MENU_HEADER_LINES_COUNT = 11 -- "", "File Name...", "----"
+local FILE_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
 local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed for file list
 local FILE_MENU_HEIGHT = FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_FOOTER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT
 
 -- Constants for notes menu layout (similar to file menu)
 local NOTES_MENU_WIDTH = 80
-local NOTES_MENU_HEADER_LINES_COUNT = 3 -- "", "File Name...", "----"
-local NOTES_MENU_FOOTER_LINES_COUNT = 7 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'Enter'..."
+local NOTES_MENU_HEADER_LINES_COUNT = 11 -- "", "File Name...", "----"
+local NOTES_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'Enter'..."
 local NOTES_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed
 local NOTES_MENU_HEIGHT = NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_FOOTER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT
 
@@ -346,9 +346,40 @@ function M.ShowVaultMenu()
 
         local display_lines = {}
 
-        -- Add fixed header lines
-        table.insert(display_lines, "")
-        table.insert(display_lines, string.format("%-10s %-45s %-20s", "Vault", "Directory Coordinates", "Last Overseer Access"))
+        -- Get sorting and path display
+        local sort_labels = {
+            [0] = "[S] SORT: VAULT NUMBER",
+            [1] = "[S] SORT: LAST UPDATED",
+            [2] = "[S] SORT: FILE PATH"
+        }
+
+        local path_display_text = ""
+        if M.full_path_display_mode then
+            path_display_text = "[H] DISPLAY: FULL PATH"
+        else
+            path_display_text = "[H] DISPLAY: NAME ONLY"
+        end
+        local sort_label = sort_labels[M.current_sort_order] or "[S] SORT: UNKNOWN"
+
+        -- Combine both labels with spacing
+        local combined = sort_label .. "    " .. path_display_text
+
+        -- Center the entire line within 80 characters
+        local padding = math.floor((MAIN_MENU_WIDTH - #combined) / 2)
+        local line = string.rep(" ", padding) .. combined
+
+        local sort_and_path_display_line = line:sub(1, MAIN_MENU_WIDTH) -- keep it under terminal width
+
+        -- Fixed header
+        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "                          ░▒▓█  VAULTS DIRECTORY  █▓▒░                          ")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, sort_and_path_display_line)
+        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
+        table.insert(display_lines, string.format("%-10s %-45s %-20s", "VAULT", "VAULT PATH", "LAST UPDATED"))
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
 
         -- Add scrollable vault content
@@ -366,36 +397,12 @@ function M.ShowVaultMenu()
              table.insert(display_lines, "")
         end
 
-        -- Add fixed footer lines
-        table.insert(display_lines, "")
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, "")
-
-        -- Display current sort order
-        local sort_text = ""
-        if M.current_sort_order == 0 then
-            sort_text = "Sort: Number (s)"
-        elseif M.current_sort_order == 1 then
-            sort_text = "Sort: Updated (s)"
-        elseif M.current_sort_order == 2 then
-            sort_text = "Sort: Path (s)"
-        end
-        table.insert(display_lines, sort_text)
-
-        -- Display current path display mode
-        local path_display_text = ""
-        if M.full_path_display_mode then
-            path_display_text = "Path: Full (h)"
-        else
-            path_display_text = "Path: Name Only (h)"
-        end
-        table.insert(display_lines, path_display_text)
-
-
-        table.insert(display_lines, "Press 'c' to Create New Vault")
-        table.insert(display_lines, "Press 'm' to Modify selected vault path")
-        table.insert(display_lines, "Press 'd' to Delete selected vault")
-        table.insert(display_lines, "Press 'Enter' to open vault, 'q' to quit")
+        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE. PRESS [ENTER] TO SELECT VAULT. [Q] TO QUIT.")
+        table.insert(display_lines, "> PRESS [C] TO CREATE NEW VAULT.")
+        table.insert(display_lines, "> PRESS [M] TO MODIFY VAULT PATH.")
+        table.insert(display_lines, "> PRESS [D] TO DELETE VAULT.")
+        table.insert(display_lines, "> PRESS [S] TO TOGGLE SORT MODES, PRESS [H] TO TOGGLE FILE PATH DISPLAY MODE.")
 
 
         -- Set buffer to modifiable before updating content
@@ -521,6 +528,7 @@ function M.ShowVaultMenu()
     vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
     vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
 
+    -- Create vaults directory menu
     main_menu_win = vim.api.nvim_open_win(main_menu_buf, true, {
         relative = 'editor',
         width = MAIN_MENU_WIDTH,
@@ -529,7 +537,7 @@ function M.ShowVaultMenu()
         row = (vim.o.lines - MAIN_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'double',
-        title = ' Vault Directory ',
+        title = '',
         title_pos = 'center'
     })
 
@@ -949,9 +957,43 @@ function M.ShowFileMenu(vault_object)
         local display_lines = {}
 
         -- Header
-        table.insert(display_lines, "")
-        table.insert(display_lines, string.format("%-50s %-20s", "File Name", "Updated"))
-        table.insert(display_lines, string.rep("─", FILE_MENU_WIDTH - 2))
+        -- Get sorting and path display
+        local sort_labels = {
+            [0] = "[S] SORT: FILE NAME",
+            [1] = "[S] SORT: LAST UPDATED",
+        }
+
+        local path_display_text = ""
+        if M.file_menu_full_path_display_mode then
+            path_display_text = "[H] DISPLAY: FULL PATH"
+        else
+            path_display_text = "[H] DISPLAY: NAME ONLY"
+        end
+        local sort_label = sort_labels[current_file_sort_order] or "[S] SORT: UNKNOWN"
+
+        -- Combine both labels with spacing
+        local combined = sort_label .. "    " .. path_display_text
+
+        -- Center the entire line within 80 characters
+        local padding = math.floor((FILE_MENU_WIDTH - #combined) / 2)
+        local line = string.rep(" ", padding) .. combined
+
+        local sort_and_path_display_line = line:sub(1, FILE_MENU_WIDTH) -- keep it under terminal width
+
+        local last_folder_name = format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
+
+        -- Fixed header
+        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
+        table.insert(display_lines, string.format(">> CURRENT VAULT: %s", last_folder_name))
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "                          ░▒▓█  FILES DIRECTORY  █▓▒░                           ")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, sort_and_path_display_line)
+        table.insert(display_lines, string.rep("─",  FILE_MENU_WIDTH))
+        table.insert(display_lines, string.format("%-50s %-20s", "FILE NAME", "LAST UPDATED"))
+        table.insert(display_lines, string.rep("─",   FILE_MENU_WIDTH))
 
         -- Scrollable content
         local num_total_file_lines = #all_file_display_lines
@@ -967,31 +1009,12 @@ function M.ShowFileMenu(vault_object)
         end
 
         -- Footer
-        table.insert(display_lines, "")
-        table.insert(display_lines, string.rep("─", FILE_MENU_WIDTH - 2))
-        table.insert(display_lines, "")
-
-        local sort_text = ""
-        if current_file_sort_order == 0 then
-            sort_text = "Sort: Name (s)"
-        elseif current_file_sort_order == 1 then
-            sort_text = "Sort: Updated (s)"
-        end
-        table.insert(display_lines, sort_text)
-
-        -- Display current file path display mode
-        local file_path_display_text = ""
-        if M.file_menu_full_path_display_mode then
-            file_path_display_text = "Path: Full (h)"
-        else
-            file_path_display_text = "Path: Name Only (h)"
-        end
-        table.insert(display_lines, file_path_display_text)
-
-        table.insert(display_lines, "Press 'c' to Create New File")
-        table.insert(display_lines, "Press 'm' to Modify File Name")
-        table.insert(display_lines, "Press 'd' to Delete File")
-        table.insert(display_lines, "Press 'Enter' to open file, 'q' to quit")
+        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
+        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE. PRESS [ENTER] TO OPEN FILE. [Q] TO QUIT.")
+        table.insert(display_lines, "> PRESS [C] TO CREATE NEW FILE.")
+        table.insert(display_lines, "> PRESS [M] TO MODIFY FILE NAME.")
+        table.insert(display_lines, "> PRESS [D] TO DELETE FILE.")
+        table.insert(display_lines, "> PRESS [S] TO TOGGLE SORT MODES, PRESS [H] TO TOGGLE FILE PATH DISPLAY MODE.")
 
         vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(file_menu_buf, 0, -1, false, display_lines)
@@ -1262,7 +1285,7 @@ function M.ShowFileMenu(vault_object)
         row = (vim.o.lines - FILE_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'double',
-        title = ' Holotape Archives :: ' .. (last_folder_name or "N/A"),
+        title = '',
         title_pos = 'center'
     })
 
@@ -1584,10 +1607,42 @@ function M.ShowNotesMenu(vault_object)
 
         local display_lines = {}
 
-        -- Header
-        table.insert(display_lines, "")
-        table.insert(display_lines, string.format("%-50s %-20s", "File Name", "Updated"))
-        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH - 2))
+        -- Get sorting and path display
+        local sort_labels = {
+            [0] = "[S] SORT: NAME",
+            [1] = "[S] SORT: UPDATED",
+        }
+
+        local path_display_text = ""
+        if M.notes_menu_full_path_display_mode then
+            path_display_text = "[H] DISPLAY: FULL PATH"
+        else
+            path_display_text = "[H] DISPLAY: NAME ONLY"
+        end
+        local sort_label = sort_labels[M.current_notes_sort_order] or "[S] SORT: UNKNOWN"
+
+        -- Combine both labels with spacing
+        local combined = sort_label .. "    " .. path_display_text
+
+        -- Center the entire line within 80 characters
+        local padding = math.floor((NOTES_MENU_WIDTH - #combined) / 2)
+        local line = string.rep(" ", padding) .. combined
+
+        local sort_and_path_display_line = line:sub(1, NOTES_MENU_WIDTH) -- keep it under terminal width
+        local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
+
+        -- Fixed header
+        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
+        table.insert(display_lines, string.format(">> CURRENT VAULT: %s", last_folder_name))
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "                          ░▒▓█  NOTES DIRECTORY  █▓▒░                           ")
+        table.insert(display_lines, "                                                                                ")
+        table.insert(display_lines, "================================================================================")
+        table.insert(display_lines, sort_and_path_display_line)
+        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
+        table.insert(display_lines, string.format("%-10s %-45s %-20s", "VAULT", "VAULT PATH", "LAST UPDATED"))
+        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
 
         -- Scrollable content
         local num_total_file_lines = #all_notes_display_lines
@@ -1602,30 +1657,11 @@ function M.ShowNotesMenu(vault_object)
             table.insert(display_lines, "")
         end
 
-        -- Footer
-        table.insert(display_lines, "")
-        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH - 2))
-        table.insert(display_lines, "")
-
-        local sort_text = ""
-        if M.current_notes_sort_order == 0 then
-            sort_text = "Sort: Name (s)"
-        elseif M.current_notes_sort_order == 1 then
-            sort_text = "Sort: Updated (s)"
-        end
-        table.insert(display_lines, sort_text)
-
-        -- Display current file path display mode
-        local notes_path_display_text = ""
-        if M.notes_menu_full_path_display_mode then
-            notes_path_display_text = "Path: Full (h)"
-        else
-            notes_path_display_text = "Path: Name Only (h)"
-        end
-        table.insert(display_lines, notes_path_display_text)
-
-
-        table.insert(display_lines, "Press 'Enter' to edit notes, 'q' to quit")
+        -- Fixed footer
+        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
+        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE.")
+        table.insert(display_lines, "> PRESS [ENTER] TO OPEN NOTE.")
+        table.insert(display_lines, "> PRESS [Q] TO QUIT.")
 
         vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(notes_menu_buf, 0, -1, false, display_lines)
@@ -1764,7 +1800,7 @@ function M.ShowNotesMenu(vault_object)
         row = (vim.o.lines - NOTES_MENU_HEIGHT) / 2,
         style = 'minimal',
         border = 'double',
-        title = " Field Logs :: " .. (last_folder_name or "N/A"),
+        title = "",
         title_pos = 'center'
     })
 
