@@ -1,6 +1,8 @@
 local json = require("lib.dkjson")
 local CONSTANT = require('constant')
 local helper = require('helper')
+local config = require('config')
+
 
 local M = {}
 
@@ -133,73 +135,6 @@ local function get_file_and_dir_from_path(full_path)
 end
 
 
--- Helper function to truncate or wrap long paths, and handle last folder name display
-local function format_path(path, max_width, full_display_mode)
-    -- Add a check to ensure 'path' is a string
-    if type(path) ~= 'string' then
-        return {""} -- Return an empty line if path is not a string
-    end
-
-    local display_path = path
-    if not full_display_mode then
-        -- Remove trailing slashes/backslashes before extracting the last component
-        local cleaned_path = helper.normalize_path(path)
-
-        -- Use string.match to extract the last component after a slash or backslash,
-        -- or the entire string if no separators are present.
-        local last_component = string.match(cleaned_path, "[^/\\]*$")
-        if last_component then
-            display_path = last_component
-        else
-            -- Fallback for cases like '/' or '' after cleaning (e.g., just "/")
-            display_path = cleaned_path
-        end
-    end
-
-    if #display_path <= max_width then
-        return {display_path}
-    end
-
-    local lines = {}
-    local current_line = ""
-    local parts = {}
-
-    -- Split by directory separator (handles both / and \) for wrapping the full path
-    -- If displaying only the last folder name, we don't need to split by directory separator
-    -- for wrapping, as it's already a single segment.
-    if full_display_mode then
-        for part in string.gmatch(display_path, "[^/\\]+") do
-            table.insert(parts, part)
-        end
-    else
-        table.insert(parts, display_path) -- Treat the single name as one part
-    end
-
-    -- Reconstruct path with line breaks
-    for i, part in ipairs(parts) do
-        local separator = (i == 1) and "" or (string.match(display_path, "\\") and "\\" or "/")
-        if not full_display_mode then separator = "" end -- No separators if only name is shown
-
-        local addition = separator .. part
-
-        if #current_line + #addition <= max_width then
-            current_line = current_line .. addition
-        else
-            if current_line ~= "" then
-                table.insert(lines, current_line)
-            end
-            current_line = addition -- Start new line, left-aligned
-        end
-    end
-
-    if current_line ~= "" then
-        table.insert(lines, current_line)
-    end
-
-    return lines
-end
-
-
 -- Helper to save data to JSON file
 local function save_vault_data()
     local json_file_path = vim.fn.expand(CONSTANT.FILE_PATH)
@@ -217,15 +152,15 @@ local function save_vault_data()
             if success then
                 return true
             else
-                vim.notify("Error during file write operation: " .. (write_err or "unknown error"), vim.log.levels.ERROR)
+                vim.notify(CONSTANT.ERROR_WRITE_OPERATION .. (write_err or CONSTANT.UNKNOWN_ERROR), vim.log.levels.ERROR)
                 return false
             end
         else
-            vim.notify("Error: Could not open JSON file for writing: " .. (err or "unknown error"), vim.log.levels.ERROR)
+            vim.notify(CONSTANT.ERROR_JSON_WRITING .. (err or CONSTANT.UNKNOWN_ERROR), vim.log.levels.ERROR)
             return false
         end
     else
-        vim.notify("Error: Could not encode JSON data. JSON string is nil.", vim.log.levels.ERROR)
+        vim.notify(CONSTANT.ERROR_NIL_JSON, vim.log.levels.ERROR)
         return false
     end
 end
@@ -255,6 +190,23 @@ local function close_all_menus()
     end
 end
 
+-- Helper function to refresh M.last_selected_vault reference after M.vaults might have been reloaded
+local function refresh_last_selected_vault_reference()
+    if M.last_selected_vault and M.last_selected_vault.vaultNumber then
+        local target_vault_num = M.last_selected_vault.vaultNumber
+        local found_vault = nil
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == target_vault_num then
+                found_vault = vault
+                break
+            end
+        end
+        M.last_selected_vault = found_vault -- Re-point, or set to nil if not found
+    else
+        M.last_selected_vault = nil -- No last selected vault or invalid
+    end
+end
+
 
 --------------------------------------------------------------------------------
 -- Main Vault Menu Functions
@@ -266,6 +218,7 @@ function M.ShowVaultMenu()
     -- Data is already loaded globally via read_vault_data_into_M() at module start.
     -- Re-read here to ensure freshest data if changes were made outside the current session.
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     -- Apply sorting based on the current module-level sort order
     helper.sort_vaults(M.vaults, M.current_sort_order)
@@ -304,7 +257,7 @@ function M.ShowVaultMenu()
         local path_max_width = 40
 
         for i, vault in ipairs(M.vaults) do -- It iterates M.vaults
-            local formatted_paths = format_path(vault.vaultPath, path_max_width, M.full_path_display_mode)
+            local formatted_paths = helper.format_path(vault.vaultPath, path_max_width, M.full_path_display_mode)
             local timestamp = helper.format_timestamp(vault.lastUpdated)
 
             local start_line_for_vault = current_line_idx
@@ -500,33 +453,29 @@ function M.ShowVaultMenu()
         M.ShowVaultMenu()
     end
 
-    -- Fallout-style highlight groups
-    vim.api.nvim_set_hl(0, 'FalloutMenu', {
-        fg = '#00FF00',      -- bright green text
-        bg = '#000000',      -- black background
-        bold = true
-    })
-
-    vim.api.nvim_set_hl(0, 'FalloutBorder', {
-        fg = '#00FF00',
-        bg = '#000000'
-    })
-
-    vim.api.nvim_set_hl(0, 'VaultSelected', {
-      fg = '#000000',     -- black text
-      bg = '#00ff00',     -- bright green background
-      bold = true
-    })
-
     -- Create new buffer and window for the menu
     main_menu_buf = vim.api.nvim_create_buf(false, true)
 
     -- Ensure true color is enabled
     vim.opt.termguicolors = true
 
-    -- Define highlight groups
-    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
-    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
+    -- Colors for highlight groups
+    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+        fg = config.main_menu.text,
+        bg = config.main_menu.background,
+        bold = true
+    })
+
+    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+        fg = config.main_menu.text,
+        bg = config.main_menu.background,
+    })
+
+    vim.api.nvim_set_hl(0, 'VaultSelected', {
+      fg = config.main_menu.background,     -- Opposite of the normal background and foreground color
+      bg = config.main_menu.text,
+      bold = true
+    })
 
     -- Create vaults directory menu
     main_menu_win = vim.api.nvim_open_win(main_menu_buf, true, {
@@ -920,10 +869,11 @@ function M.ShowFileMenu(vault_object)
         local line_map = {}
         local current_line_idx = 0
 
-        local filename_max_width = 50
+        local filename_max_width = 40
 
         for i, file_entry in ipairs(files_in_vault) do
-            local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode)
+            local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode)
+
             local timestamp = helper.format_timestamp(file_entry.lastUpdated)
 
             local start_line_for_file = current_line_idx
@@ -939,7 +889,7 @@ function M.ShowFileMenu(vault_object)
             for j = 2, #formatted_filename do
                 local continuation_line = string.format("%-50s %-20s",
                     formatted_filename[j],
-                    ""
+                    " "
                 )
                 table.insert(lines, continuation_line)
                 current_line_idx = current_line_idx + 1
@@ -980,7 +930,7 @@ function M.ShowFileMenu(vault_object)
 
         local sort_and_path_display_line = line:sub(1, FILE_MENU_WIDTH) -- keep it under terminal width
 
-        local last_folder_name = format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
+        local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
 
         -- Fixed header
         table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
@@ -1078,6 +1028,8 @@ function M.ShowFileMenu(vault_object)
 
     local function refresh_file_menu()
         read_vault_data_into_M()
+        refresh_last_selected_vault_reference()
+
         local found_vault = nil
         for _, v in ipairs(M.vaults) do
             if v.vaultNumber == vault_object.vaultNumber then
@@ -1244,38 +1196,32 @@ function M.ShowFileMenu(vault_object)
     end
 
     -- Get the last component of the vault path for the title
-    local last_folder_name = format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
+    local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
 
 
-    -- Fallout-style highlight groups
+    -- Colors for highlight groups
     vim.api.nvim_set_hl(0, 'FalloutMenu', {
-        fg = '#00FF00',      -- bright green text
-        bg = '#000000',      -- black background
+        fg = config.files_menu.text,
+        bg = config.main_menu.background,
         bold = true
     })
 
     vim.api.nvim_set_hl(0, 'FalloutBorder', {
-        fg = '#00FF00',
-        bg = '#000000'
+        fg = config.files_menu.text,
+        bg = config.main_menu.background,
     })
 
     vim.api.nvim_set_hl(0, 'VaultSelected', {
-      fg = '#000000',     -- black text
-      bg = '#00ff00',     -- bright green background
+      fg = config.files_menu.background,     -- Opposite of the normal background and foreground color
+      bg = config.main_menu.text,
       bold = true
     })
-
 
     -- Create new buffer and window for the file menu
     file_menu_buf = vim.api.nvim_create_buf(false, true)
 
     -- Ensure true color is enabled
     vim.opt.termguicolors = true
-
-    -- Define highlight groups
-    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
-    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
-
 
     file_menu_win = vim.api.nvim_open_win(file_menu_buf, true, {
         relative = 'editor',
@@ -1366,26 +1312,22 @@ function M.EditFileNotes(vault_object, file_entry)
         return
     end
 
-    -- Fallout-style highlight groups
+    -- Colors for highlight groups
     vim.api.nvim_set_hl(0, 'FalloutNotes', {
-        fg = '#FFFFFF',      -- white text
-        bg = '#000000',      -- black background
+        fg = config.notes.text,
+        bg = config.main_menu.background,
         bold = true
     })
 
     vim.api.nvim_set_hl(0, 'FalloutNotesBorder', {
-        fg = '#FFFFFF',
-        bg = '#000000'
+        fg = config.notes.text,
+        bg = config.main_menu.background,
     })
 
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
 
     -- Ensure true color is enabled
     vim.opt.termguicolors = true
-
-    -- Define highlight groups
-    vim.api.nvim_set_hl(0, "FalloutNotes", { fg = "#FFFFFF", bg = "black", bold = true })
-    vim.api.nvim_set_hl(0, "FalloutNotesBorder", { fg = "#FFFFFF", bg = "black" })
 
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
         relative = 'editor',
@@ -1574,7 +1516,7 @@ function M.ShowNotesMenu(vault_object)
         local filename_max_width = 50
 
         for i, file_entry in ipairs(files_in_vault) do
-            local formatted_filename = format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
+            local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
             local timestamp = helper.format_timestamp(file_entry.lastUpdated)
 
             local start_line_for_file = current_line_idx
@@ -1629,7 +1571,7 @@ function M.ShowNotesMenu(vault_object)
         local line = string.rep(" ", padding) .. combined
 
         local sort_and_path_display_line = line:sub(1, NOTES_MENU_WIDTH) -- keep it under terminal width
-        local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
+        local last_folder_name = helper.format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
 
         -- Fixed header
         table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
@@ -1641,7 +1583,7 @@ function M.ShowNotesMenu(vault_object)
         table.insert(display_lines, "================================================================================")
         table.insert(display_lines, sort_and_path_display_line)
         table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-        table.insert(display_lines, string.format("%-10s %-45s %-20s", "VAULT", "VAULT PATH", "LAST UPDATED"))
+        table.insert(display_lines, string.format("%-10s %-45s %-20s", "FILE NAME",  "LAST UPDATED"))
         table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
 
         -- Scrollable content
@@ -1725,6 +1667,8 @@ function M.ShowNotesMenu(vault_object)
 
     local function refresh_notes_menu()
         read_vault_data_into_M()
+        refresh_last_selected_vault_reference()
+
         local found_vault = nil
         for _, v in ipairs(M.vaults) do
             if v.vaultNumber == vault_object.vaultNumber then
@@ -1763,23 +1707,21 @@ function M.ShowNotesMenu(vault_object)
     end
 
 
-    local last_folder_name = format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
-
-    -- Fallout-style highlight groups
+    -- Colors for highlight groups
     vim.api.nvim_set_hl(0, 'FalloutMenu', {
-        fg = '#00FF00',      -- bright green text
-        bg = '#000000',      -- black background
+        fg = config.notes_menu.text,
+        bg = config.notes_menu.background,
         bold = true
     })
 
     vim.api.nvim_set_hl(0, 'FalloutBorder', {
-        fg = '#00FF00',
-        bg = '#000000'
+        fg = config.notes_menu.text,
+        bg = config.notes_menu.background,
     })
 
     vim.api.nvim_set_hl(0, 'VaultSelected', {
-      fg = '#000000',     -- black text
-      bg = '#00ff00',     -- bright green background
+      fg = config.notes_menu.background,     -- Opposite of the normal background and foreground color
+      bg = config.notes_menu.text,
       bold = true
     })
 
@@ -1856,6 +1798,9 @@ end
 
 -- Open the Notes Menu for a specified vault number or the last selected one
 function M.OpenVaultNotesMenu(vault_num_str)
+    read_vault_data_into_M() -- Always load freshest data
+    refresh_last_selected_vault_reference() -- Ensure last_selected_vault is current
+
     local target_vault = nil
 
     if vault_num_str and vault_num_str ~= "" then
@@ -1905,6 +1850,8 @@ end
 -- Open the Files Menu for a specified vault number or the last selected one
 function M.OpenVaultFilesMenu(vault_num_str)
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
+
     local target_vault = nil
 
     if vault_num_str and vault_num_str ~= "" then
@@ -1954,6 +1901,8 @@ end
 -- Open a vault by its number
 function M.EnterVaultByNumber(vault_num_str)
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
+
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
         vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
@@ -1981,6 +1930,8 @@ end
 -- Delete a vault by its number
 function M.DeleteVaultByNumber(vault_num_str)
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
+
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
         vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
@@ -2026,6 +1977,7 @@ end
 -- Create a new vault with the current working directory
 function M.CreateVaultWithCwd()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     local new_vault_number
     if #M.available_vault_numbers > 0 then
@@ -2070,6 +2022,7 @@ end
 -- Add the current file to the selected vault
 function M.AddCurrentFileToVault()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     if not M.last_selected_vault then
         vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
@@ -2148,6 +2101,7 @@ end
 -- Go to the next file in the selected vault
 function M.VaultFileNext()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     if not M.last_selected_vault then
         vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
@@ -2222,6 +2176,7 @@ end
 -- Remove the current file from the selected vault
 function M.RemoveCurrentFileFromVault()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     if not M.last_selected_vault then
         vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
@@ -2306,6 +2261,7 @@ end
 function M.OpenCurrentFileNotes()
     -- Ensure vault data is up-to-date
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     -- Ensure M.last_selected_vault points to the most current object in M.vaults
     if M.last_selected_vault then
@@ -2377,6 +2333,7 @@ end
 --- Delete all note content for the current file.
 function M.DeleteCurrentFileNotes()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     -- Ensure M.last_selected_vault points to the most current object in M.vaults
     if M.last_selected_vault then
@@ -2483,6 +2440,7 @@ end
 -- Export the note of the current file as a file.
 function M.ExportCurrentFileNotes()
     read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
 
     if not M.last_selected_vault then
         vim.notify("No vault is currently selected. Please select a vault first using :Vaults or :VaultEnter.", vim.log.levels.WARN)

@@ -98,6 +98,86 @@ function H.normalize_path(path)
     return result
 end
 
+-- Helper to truncate the middle of a long string to keep it exactly max_width
+local function truncate_middle(str, max_width)
+    -- If input is not string or too short, return as is
+    if type(str) ~= "string" or max_width <= 0 then
+        return ""
+    end
+
+    -- If the string fits within max_width, return original string
+    if #str <= max_width then
+        return str
+    end
+
+    -- If max_width is too small to even fit the three dots "..."
+    if max_width <= 3 then
+        return string.sub(str, 1, max_width)
+    end
+
+    -- Calculate no chars to keep from start and end
+    local keep = max_width - 3
+    local left = math.floor(keep / 2)
+    local right = keep - left
+
+    return string.sub(str, 1, left) .. "..." .. string.sub(str, -right)
+end
+
+-- Helper function to truncate or wrap long paths, and handle last folder name display
+function H.format_path(path, max_width, full_display_mode)
+    if type(path) ~= 'string' then
+        return {""}
+    end
+
+    local display_path = path
+    if not full_display_mode then
+        local cleaned_path = H.normalize_path(path)
+        local last_component = string.match(cleaned_path, "[^/\\]*$")
+        display_path = last_component or cleaned_path
+    end
+
+    if #display_path <= max_width then
+        return {display_path}
+    end
+
+    local lines = {}
+    local current_line = ""
+    local parts = {}
+
+    if full_display_mode then
+        for part in string.gmatch(display_path, "[^/\\]+") do
+            table.insert(parts, part)
+        end
+    else
+        table.insert(parts, display_path)
+    end
+
+    for i, part in ipairs(parts) do
+        -- truncate part if it's longer than max_width
+        part = truncate_middle(part, max_width)
+
+        local separator = (i == 1) and "" or (string.match(display_path, "\\") and "\\" or "/")
+        if not full_display_mode then separator = "" end
+
+        local addition = separator .. part
+
+        if #current_line + #addition <= max_width then
+            current_line = current_line .. addition
+        else
+            if current_line ~= "" then
+                table.insert(lines, current_line)
+            end
+            current_line = addition
+        end
+    end
+
+    if current_line ~= "" then
+        table.insert(lines, current_line)
+    end
+
+    return lines
+end
+
 -- Helper function to format timestamp
 function H.format_timestamp(timestamp)
     local normalized
@@ -175,5 +255,22 @@ function H.get_filename_stem(filename)
         return filename
     end
 end
+
+-- Helper printing function for debugging
+function H.printTable(tbl, indent)
+    indent = indent or 0
+    local prefix = string.rep("  ", indent)
+
+    for key, value in pairs(tbl) do
+        if type(value) == "table" then
+            print(prefix .. tostring(key) .. " = {")
+            H.printTable(value, indent + 1)
+            print(prefix .. "}")
+        else
+            print(prefix .. tostring(key) .. " = " .. tostring(value))
+        end
+    end
+end
+
 
 return H

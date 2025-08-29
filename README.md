@@ -1,10 +1,10 @@
-# 🛠️🔐 vim-vault — Vault-Tec's Official Vim Plugin
+# ☢️🚀💥 VIM-VAULT — Vault-Tec's Official Vim Plugin
 
-Welcome to **vim-vault**, the ultimate file navigation and project management plugin for Vim — inspired by the legendary Vault-Tec systems of the Fallout universe. Whether you're hacking terminals in the Wasteland or organizing your code deep in Vault 101, vim-vault keeps your workflow secure, efficient, and irradiated with productivity. 💾☢️
+Welcome to **vim-vault**, the ultimate project management and file navigation plugin for Vim — inspired by the legendary Vault-Tec systems of the Fallout universe. Whether you're hacking terminals in the Wasteland or organizing your code deep in Vault 101, vim-vault keeps your workflow secure, efficient, and irradiated with productivity. 💾☢️
 
 ---
 
-## ✨ Features (Vault-Tec Certified)
+## 🛠️☣️ Features (Vault-Tec Certified)
 
 - 📂 Navigate files quickly
 - 🗂️ Bookmark and switch between projects faster than a Nuka-Cola delivery  
@@ -13,7 +13,7 @@ Welcome to **vim-vault**, the ultimate file navigation and project management pl
 
 ---
 
-## 🚀 Installation (No Power Armor Required)
+## 💥 Installation (No Power Armor Required)
 
 Use your favorite plugin manager:
 
@@ -38,7 +38,7 @@ git clone https://github.com/kietdo0602/vim-vault.git
 
 ---
 
-## ⚙️ Configuration (Customize Your Terminal)
+## 📟 Configuration (Customize Your Terminal)
 
 Add this to your `.vimrc` to get started:
 
@@ -56,8 +56,12 @@ let g:vim_vault_notes_menu_background = '#000000'
 let g:vim_vault_notes_menu_text = '#FFFFFF'
 
 " Set the default sorting / display type
-let g:vim_vault_background = '#000000'
-let g:vim_vault_text = '#FFFFFF'
+let g:vim_vault_menu_sort = 0
+let g:vim_vault_menu_display = 1
+let g:vim_vault_files_sort = 2
+let g:vim_vault_files_display = 0
+let g:vim_vault_notes_sort = 0
+let g:vim_vault_notes_display = 1
 ```
 
 ---
