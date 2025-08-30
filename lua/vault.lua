@@ -1375,7 +1375,7 @@ function M.EditFileNotes(vault_object, file_entry)
             local vault_num_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'vault_number_id')
             local file_name_id = vim.api.nvim_buf_get_var(notes_editor_buf, 'file_name_id')
 
-            vim.notify("Retrieved IDs: Vault=" .. tostring(vault_num_id) .. ", File='" .. tostring(file_name_id) .. "'", vim.log.levels.INFO)
+            -- vim.notify("Retrieved IDs: Vault=" .. tostring(vault_num_id) .. ", File='" .. tostring(file_name_id) .. "'", vim.log.levels.INFO)
 
             local target_vault = nil
             local target_file_entry = nil
@@ -1513,7 +1513,7 @@ function M.ShowNotesMenu(vault_object)
         local line_map = {}
         local current_line_idx = 0
 
-        local filename_max_width = 50
+        local filename_max_width = 45
 
         for i, file_entry in ipairs(files_in_vault) do
             local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
@@ -1583,7 +1583,7 @@ function M.ShowNotesMenu(vault_object)
         table.insert(display_lines, "================================================================================")
         table.insert(display_lines, sort_and_path_display_line)
         table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-        table.insert(display_lines, string.format("%-10s %-45s %-20s", "FILE NAME",  "LAST UPDATED"))
+        table.insert(display_lines, string.format("%-50s %-20s", "FILE NAME",  "LAST UPDATED"))
         table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
 
         -- Scrollable content
