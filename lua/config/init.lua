@@ -1,24 +1,26 @@
+local helper = require('helper')
+
 local main_menu = {
-  background = vim.g.vim_vault_main_menu_background or "#000000",
-  text       = vim.g.vim_vault_main_menu_text or "#00FF00",
-  sort    = vim.g.vim_vault_menu_sort or 0,
-  display = vim.g.vim_vault_menu_display or 0,
+  background = helper.validateHexColor(vim.g.vim_vault_main_menu_background) or "#000000",
+  text       = helper.validateHexColor(vim.g.vim_vault_main_menu_text) or "#00FF00",
+  sort       = helper.validateNumber(vim.g.vim_vault_menu_sort) or 0,
+  display    = helper.validateBoolean(vim.g.vim_vault_menu_display) or false,
 }
 local files_menu = {
-  background = vim.g.vim_vault_files_menu_background or "#000000",
-  text       = vim.g.vim_vault_files_menu_text or "#00FF00",
-  sort       = vim.g.vim_vault_files_sort or 0,
-  display    = vim.g.vim_vault_files_display or 0,
+  background = helper.validateHexColor(vim.g.vim_vault_files_menu_background) or "#000000",
+  text       = helper.validateHexColor(vim.g.vim_vault_files_menu_text) or "#00FF00",
+  sort       = helper.validateNumber(vim.g.vim_vault_files_sort) or 0,
+  display    = helper.validateBoolean(vim.g.vim_vault_files_display) or false,
 }
 local notes_menu = {
-  background = vim.g.vim_vault_notes_menu_background or "#000000",
-  text       = vim.g.vim_vault_notes_menu_text or "#00FF00",
-  sort       = vim.g.vim_vault_notes_sort or 0,
-  display    = vim.g.vim_vault_notes_display or 0,
+  background = helper.validateHexColor(vim.g.vim_vault_notes_menu_background) or "#000000",
+  text       = helper.validateHexColor(vim.g.vim_vault_notes_menu_text) or "#00FF00",
+  sort       = helper.validateNumber(vim.g.vim_vault_notes_sort) or 0,
+  display    = helper.validateBoolean(vim.g.vim_vault_notes_display) or false,
 }
 local notes = {
-  background = vim.g.vim_vault_notes_menu_background or "#000000",
-  text       = vim.g.vim_vault_notes_menu_text or "#FFFFFF",
+  background = helper.validateHexColor(vim.g.vim_vault_notes_menu_background) or "#000000",
+  text       = helper.validateHexColor(vim.g.vim_vault_notes_menu_text) or "#FFFFFF",
 }
 
 return {

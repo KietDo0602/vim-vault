@@ -41,25 +41,17 @@ local function read_vault_data_into_M()
     return true
 end
 
--- Module-level state to persist sort order across menu re-opens
--- 0: vaultNumber (default), 1: lastUpdated (desc), 2: vaultPath (alpha)
-M.current_sort_order = 0
 
--- Module-level state to persist path display mode for the main vault menu
--- true: full path, false: last folder name only
-M.full_path_display_mode = true
+M.current_sort_order = config.main_menu.sort
+M.full_path_display_mode = config.main_menu.display
 
--- New: Module-level state to persist path display mode for the file menu
--- true: full path (default), false: last folder name only
-M.file_menu_full_path_display_mode = true
 
--- New: Module-level state for notes menu sorting
--- 0: fileName (alphabetical), 1: lastUpdated (desc)
-M.current_notes_sort_order = 0
+M.file_menu_full_path_display_mode = config.files_menu.display
+M.current_file_sort_order = config.files_menu.sort
 
--- New: Module-level state for notes menu path display
--- true: full path (default), false: last folder name only
-M.notes_menu_full_path_display_mode = true
+
+M.current_notes_sort_order = config.notes_menu.sort
+M.notes_menu_full_path_display_mode = config.notes_menu.display
 
 -- Module-level variables for the menu window and buffer, allowing external functions to close them
 local main_menu_win = nil
@@ -695,15 +687,11 @@ end
 -- File Menu Functions
 --------------------------------------------------------------------------------
 
--- Current sort order for the file menu
--- 0: fileName (default), 1: lastUpdated (desc)
-local current_file_sort_order = 0
-
 -- Autocommand group for vault file buffer events
 local vault_file_autocmd_grp = vim.api.nvim_create_augroup('VaultFileAutoCommands', { clear = true })
 
 -- Function to save current buffer position to JSON for a given file path
-local function save_file_position_to_json(file_path_to_save)
+function M.save_file_position_to_json(file_path_to_save)
     if not file_path_to_save or file_path_to_save == "" then return end
 
     local current_buf = vim.api.nvim_get_current_buf()
@@ -753,82 +741,61 @@ function M.open_file_entry(vault_object, target_file_entry, current_selected_fil
     -- Use vim.fn.resolve for robust path resolution
     local full_file_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. file_to_open.fileName)
     close_all_menus() -- Close file menu
-    vim.cmd("edit " .. vim.fn.fnameescape(full_file_path))
+    local escaped_path = vim.fn.fnameescape(full_file_path)
+    local swap_basename = full_file_path:gsub("/", "%%"):gsub("%%", ".")
+    local swap_path = vim.fn.fnamemodify(full_file_path, ":p:h") .. "/." .. swap_basename .. ".swp"
 
-    -- Get the current buffer for the opened file
-    local current_buf = vim.api.nvim_get_current_buf()
-
-    -- Clear any existing BufLeave autocommands for this buffer to prevent duplicates
-    vim.api.nvim_exec_autocmds('BufLeave', { buffer = current_buf, group = vault_file_autocmd_grp })
-
-    -- Set an autocommand to save position when this specific buffer is left
-    vim.api.nvim_create_autocmd('BufLeave', {
-        group = vault_file_autocmd_grp,
-        buffer = current_buf,
-        callback = function()
-            save_file_position_to_json(full_file_path)
-        end,
-        desc = "Save vault file position on BufLeave"
-    })
-
-    local target_line = 1
-    local target_col = 0
-
-    -- Try to get the position of the last edit (the "." mark) in this buffer
-    local last_edit_pos = vim.api.nvim_buf_get_mark(current_buf, ".")
-
-    -- Check if the '.' mark is valid (i.e., not [0,0] for an empty buffer or non-existent mark)
-    -- The '.' mark is typically valid if the buffer has been modified in the current session.
-    -- If the buffer content is empty, get_mark might return [0,0]. Also check if line > 0.
-    if last_edit_pos and last_edit_pos[1] > 0 then
-        -- If a valid '.' mark exists, use its line and column (session-specific last edit)
-        target_line = last_edit_pos[1]
-        target_col = last_edit_pos[2]
+    if vim.fn.filereadable(swap_path) == 1 then
+        -- Swap file exists — prompt user
+        vim.ui.select({ "Recover", "Open Readonly", "Force Edit", "Cancel" }, {
+            prompt = "Swap file detected for '" .. file_to_open.fileName .. "'. What would you like to do?",
+        }, function(choice)
+            if choice == "Recover" then
+                vim.cmd("recover " .. escaped_path)
+            elseif choice == "Open Readonly" then
+                vim.cmd("view " .. escaped_path)
+            elseif choice == "Force Edit" then
+                vim.cmd("edit! " .. escaped_path)
+            else
+                vim.notify("File open cancelled due to swap conflict.", vim.log.levels.INFO)
+                return
+            end
+        end)
     else
-        -- Otherwise, use the stored line and column from the vault data
-        target_line = file_to_open.line or 1
-        target_col = file_to_open.col or 0
+        M._post_open_setup(full_file_path, file_to_open, vault_object)
     end
 
-    -- Validate cursor position before setting it
-    local total_lines = vim.api.nvim_buf_line_count(current_buf)
-    if target_line < 1 then
-        target_line = 1
-    elseif target_line > total_lines then
-        target_line = total_lines
-    end
+end
 
-    -- Get the length of the target line to validate column position
-    local line_content = ""
-    if total_lines > 0 then
-        local lines = vim.api.nvim_buf_get_lines(current_buf, target_line - 1, target_line, false)
-        if #lines > 0 then
-            line_content = lines[1]
+-- Handle cursor and file logic after opening
+function M._post_open_setup(full_file_path, file_to_open, vault_object)
+    -- Check if buffer for this file already exists
+    local existing_buf = helper.fileExistInBuffer(full_file_path)
+
+    print('Buffer number:', existing_buf)
+    -- If the buffer for the file doesn't exist then
+    if not existing_buf then
+        vim.cmd("edit " .. full_file_path)
+        local target_line = file_to_open.line or 1
+        local target_col = file_to_open.col or 0
+
+        local success = pcall(vim.api.nvim_win_set_cursor, 0, {target_line, target_col})
+        if not success then
+            vim.notify("Warning: Could not set cursor to stored position. Using line 1, column 0.", vim.log.levels.WARN)
+            vim.api.nvim_win_set_cursor(0, {1, 0})
         end
+    else
+        vim.cmd("edit " .. full_file_path)
     end
 
-    -- Validate column position
-    if target_col < 0 then
-        target_col = 0
-    elseif target_col > #line_content then
-        target_col = #line_content
-    end
-
-    -- Safely set cursor position with error handling
-    local success, err = pcall(vim.api.nvim_win_set_cursor, 0, {target_line, target_col})
-    if not success then
-        -- Fallback to safe position if there's still an error
-        vim.notify("Warning: Could not set cursor to stored position. Using line 1, column 0.", vim.log.levels.WARN)
-        vim.api.nvim_win_set_cursor(0, {1, 0})
-    end
-
+    -- Always center the cursor and update vault metadata
     vim.cmd("normal! zz")
 
-    -- Update last selected file in the vault object and save data
     vault_object.lastSelectedFile = file_to_open.fileName
     vault_object.lastUpdated = os.time()
     save_vault_data()
 end
+
 
 function M.ShowFileMenu(vault_object)
     close_all_menus()
@@ -839,7 +806,7 @@ function M.ShowFileMenu(vault_object)
     end
 
     local files_in_vault = vim.deepcopy(vault_object.files)
-    helper.sort_files(files_in_vault, current_file_sort_order)
+    helper.sort_files(files_in_vault, M.current_file_sort_order)
 
     local current_selected_file_idx = 1
     local current_file_scroll_top_line_idx = 0
@@ -919,7 +886,7 @@ function M.ShowFileMenu(vault_object)
         else
             path_display_text = "[H] DISPLAY: NAME ONLY"
         end
-        local sort_label = sort_labels[current_file_sort_order] or "[S] SORT: UNKNOWN"
+        local sort_label = sort_labels[M.current_file_sort_order] or "[S] SORT: UNKNOWN"
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
@@ -1264,8 +1231,8 @@ function M.ShowFileMenu(vault_object)
 
     -- Key mapping for sorting files
     vim.keymap.set('n', 's', function()
-        current_file_sort_order = (current_file_sort_order + 1) % 2
-        helper.sort_files(files_in_vault, current_file_sort_order)
+        M.current_file_sort_order = (M.current_file_sort_order + 1) % 2
+        helper.sort_files(files_in_vault, M.current_file_sort_order)
         update_file_menu_display()
     end, opts)
 
@@ -2132,7 +2099,7 @@ function M.VaultFileNext()
         return
     end
 
-    helper.sort_files(files_in_vault, current_file_sort_order) -- Ensure sorted order for 'next' logic
+    helper.sort_files(files_in_vault, M.current_file_sort_order) -- Ensure sorted order for 'next' logic
 
     local current_file_path = vim.api.nvim_buf_get_name(0)
     local current_relative_path = nil

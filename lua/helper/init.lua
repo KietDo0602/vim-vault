@@ -272,5 +272,49 @@ function H.printTable(tbl, indent)
     end
 end
 
+function H.validateHexColor(value)
+    if type(value) ~= "string" then
+        return nil
+    end
+
+    -- Match # followed by 3 or 6 hexadecimal digits
+    if value:match("^#%x%x%x$") or value:match("^#%x%x%x%x%x%x$") then
+        return value
+    else
+        return nil
+    end
+end
+
+function H.validateBoolean(value)
+    if type(value) == "boolean" then
+        return value
+    else
+        return false
+    end
+end
+
+function H.validateNumber(value)
+    if type(value) == "number" and value > 0 then
+        return value
+    else
+        return 0
+    end
+end
+
+function H.fileExistInBuffer(file_path)
+    local abs_path = vim.fn.fnamemodify(file_path, ":p")
+
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+        if vim.api.nvim_buf_is_loaded(buf) then
+            local buf_name = vim.api.nvim_buf_get_name(buf)
+            -- Ignore unnamed buffers
+            if buf_name ~= "" and buf_name == abs_path then
+                return buf
+            end
+        end
+    end
+
+    return false
+end
 
 return H
