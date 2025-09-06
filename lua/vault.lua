@@ -293,18 +293,18 @@ function M.ShowVaultMenu()
 
         -- Get sorting and path display
         local sort_labels = {
-            [0] = "[S] SORT: VAULT NUMBER",
-            [1] = "[S] SORT: LAST UPDATED",
-            [2] = "[S] SORT: FILE PATH"
+            [0] = CONSTANT.VAULT_SORT_NUMBER,
+            [1] = CONSTANT.VAULT_SORT_UPDATED,
+            [2] = CONSTANT.VAULT_SORT_PATH
         }
 
         local path_display_text = ""
         if M.full_path_display_mode then
-            path_display_text = "[H] DISPLAY: FULL PATH"
+            path_display_text = CONSTANT.DISPLAY_FULL
         else
-            path_display_text = "[H] DISPLAY: NAME ONLY"
+            path_display_text = CONSTANT.DISPLAY_NAME
         end
-        local sort_label = sort_labels[M.current_sort_order] or "[S] SORT: UNKNOWN"
+        local sort_label = sort_labels[M.current_sort_order] or CONSTANT.SORT_UNKNOWN
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
@@ -343,11 +343,11 @@ function M.ShowVaultMenu()
         end
 
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE. PRESS [ENTER] TO SELECT VAULT. [Q] TO QUIT.")
-        table.insert(display_lines, "> PRESS [C] TO CREATE NEW VAULT.")
-        table.insert(display_lines, "> PRESS [M] TO MODIFY VAULT PATH.")
-        table.insert(display_lines, "> PRESS [D] TO DELETE VAULT.")
-        table.insert(display_lines, "> PRESS [S] TO TOGGLE SORT MODES, PRESS [H] TO TOGGLE FILE PATH DISPLAY MODE.")
+        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_1)
+        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_2)
+        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_3)
+        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_4)
+        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_5)
 
 
         -- Set buffer to modifiable before updating content
@@ -535,7 +535,7 @@ function M.ShowVaultMenu()
         local default_path = vim.fn.getcwd()
 
         vim.ui.input({
-            prompt = "Enter new vault path: ",
+            prompt = CONSTANT.MSG_ENTER_NEW_VAULT,
             default = default_path
         }, function(path)
             if path and path ~= "" then
@@ -554,14 +554,14 @@ function M.ShowVaultMenu()
                         refresh_main_menu()
                     end
                 else
-                    vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
+                    vim.notify(CONSTANT.ERROR_INVALID_DIR_PATH, vim.log.levels.ERROR)
                 end
             end
         end)
     end
 
     local function modify_vault_path_interactive()
-        if #M.vaults == 0 then vim.notify("No vaults to modify.", vim.log.levels.INFO); return end
+        if #M.vaults == 0 then vim.notify(CONSTANT.MSG_NO_VAULT_MODIFY, vim.log.levels.INFO); return end
         local vault_to_modify = nil
         for _, vault in ipairs(M.vaults) do
             if current_selected_vault_idx > 0 and current_selected_vault_idx <= #M.vaults and vault.vaultNumber == M.vaults[current_selected_vault_idx].vaultNumber then
@@ -574,7 +574,7 @@ function M.ShowVaultMenu()
 
         local current_path = vault_to_modify.vaultPath
         vim.ui.input({
-            prompt = "Enter new vault path: ",
+            prompt = CONSTANT.MSG_ENTER_NEW_VAULT,
             default = current_path
         }, function(path)
             if path and path ~= "" then
@@ -588,14 +588,14 @@ function M.ShowVaultMenu()
                         refresh_main_menu()
                     end
                 else
-                    vim.notify("Error: Invalid directory path", vim.log.levels.ERROR)
+                    vim.notify(CONSTANT.ERROR_INVALID_DIR_PATH, vim.log.levels.ERROR)
                 end
             end
         end)
     end
 
     local function delete_vault_interactive()
-        if #M.vaults == 0 then vim.notify("No vaults to delete.", vim.log.levels.INFO); return end
+        if #M.vaults == 0 then vim.notify(CONSTANT.MSG_NO_VAULT_DELETE, vim.log.levels.INFO); return end
         local vault_to_delete_idx_in_table = current_selected_vault_idx
         local vault_to_delete = M.vaults[vault_to_delete_idx_in_table]
         if not vault_to_delete then return end
@@ -604,7 +604,7 @@ function M.ShowVaultMenu()
         local vault_number = vault_to_delete.vaultNumber
 
         vim.ui.select({'Yes', 'No'}, {
-            prompt = string.format('Are you sure you want to delete Vault #%d (%s)? This action is permanent.', vault_number, vault_path),
+            prompt = string.format("⚠️ Vault-Tec Warning: Are you sure you want to delete Vault #%d (%s)? This action is permanent and irreversible. Proceed only with Overseer-level clearance.", vault_number, vault_path),
         }, function(choice)
             if choice == 'Yes' then
                 table.remove(M.vaults, vault_to_delete_idx_in_table)
@@ -626,7 +626,7 @@ function M.ShowVaultMenu()
     end
 
     local function open_vault_from_menu()
-        if #M.vaults == 0 then vim.notify("No vaults to open.", vim.log.levels.INFO); return end
+        if #M.vaults == 0 then vim.notify(CONSTANT.MSG_NO_VAULT, vim.log.levels.INFO); return end
         local vault_to_open = M.vaults[current_selected_vault_idx]
         if not vault_to_open then return end
 
@@ -634,7 +634,7 @@ function M.ShowVaultMenu()
         M.last_selected_vault = vault_to_open
         close_all_menus()
         vim.cmd('cd ' .. vim.fn.fnameescape(vault_path))
-        print("Opened vault: " .. vault_path)
+        vim.notify(CONSTANT.MSG_VAULT_OPEN .. vault_path)
     end
 
     -- Set up key mappings for navigation and actions
@@ -734,7 +734,7 @@ end
 
 -- Moved open_file_entry to M module so it can be called from VaultFileNext
 function M.open_file_entry(vault_object, target_file_entry, current_selected_file_idx, files_in_vault)
-    if #files_in_vault == 0 then vim.notify("No files to open.", vim.log.levels.INFO); return end
+    if #files_in_vault == 0 then vim.notify(CONSTANT.MSG_NO_FILES, vim.log.levels.INFO); return end
     local file_to_open = target_file_entry or files_in_vault[current_selected_file_idx] -- Use argument or current selection
     if not file_to_open then return end
 
@@ -772,7 +772,6 @@ function M._post_open_setup(full_file_path, file_to_open, vault_object)
     -- Check if buffer for this file already exists
     local existing_buf = helper.fileExistInBuffer(full_file_path)
 
-    print('Buffer number:', existing_buf)
     -- If the buffer for the file doesn't exist then
     if not existing_buf then
         vim.cmd("edit " .. full_file_path)
@@ -801,7 +800,7 @@ function M.ShowFileMenu(vault_object)
     close_all_menus()
 
     if not vault_object or not vault_object.vaultPath or not vault_object.files then
-        vim.notify("Invalid vault selected for File Menu.", vim.log.levels.ERROR)
+        vim.notify(CONSTANT.MSG_INVALID_VAULT_SELECTED, vim.log.levels.ERROR)
         return
     end
 
@@ -876,17 +875,17 @@ function M.ShowFileMenu(vault_object)
         -- Header
         -- Get sorting and path display
         local sort_labels = {
-            [0] = "[S] SORT: FILE NAME",
-            [1] = "[S] SORT: LAST UPDATED",
+            [0] = CONSTANT.FILE_SORT_NAME,
+            [1] = CONSTANT.FILE_SORT_UPDATED,
         }
 
         local path_display_text = ""
         if M.file_menu_full_path_display_mode then
-            path_display_text = "[H] DISPLAY: FULL PATH"
+            path_display_text = CONSTANT.DISPLAY_FULL
         else
-            path_display_text = "[H] DISPLAY: NAME ONLY"
+            path_display_text = CONSTANT.DISPLAY_NAME
         end
-        local sort_label = sort_labels[M.current_file_sort_order] or "[S] SORT: UNKNOWN"
+        local sort_label = sort_labels[M.current_file_sort_order] or CONSTANT.SORT_UNKNOWN
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
@@ -927,11 +926,11 @@ function M.ShowFileMenu(vault_object)
 
         -- Footer
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE. PRESS [ENTER] TO OPEN FILE. [Q] TO QUIT.")
-        table.insert(display_lines, "> PRESS [C] TO CREATE NEW FILE.")
-        table.insert(display_lines, "> PRESS [M] TO MODIFY FILE NAME.")
-        table.insert(display_lines, "> PRESS [D] TO DELETE FILE.")
-        table.insert(display_lines, "> PRESS [S] TO TOGGLE SORT MODES, PRESS [H] TO TOGGLE FILE PATH DISPLAY MODE.")
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_1)
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_2)
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_3)
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_4)
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_5)
 
         vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(file_menu_buf, 0, -1, false, display_lines)
@@ -1009,13 +1008,13 @@ function M.ShowFileMenu(vault_object)
         if found_vault then
             M.ShowFileMenu(found_vault)
         else
-            vim.notify("Parent vault no longer exists.", vim.log.levels.ERROR)
+            vim.notify(CONSTANT.MSG_PARENT_VAULT_EXIST, vim.log.levels.ERROR)
         end
     end
 
     local function create_file_entry()
         vim.ui.input({
-            prompt = "Enter new file path (relative to vault): ",
+            prompt = CONSTANT.CREATE_NEW_FILE,
             default = ""
         }, function(relative_path)
             if relative_path and relative_path ~= "" then
@@ -1064,7 +1063,7 @@ function M.ShowFileMenu(vault_object)
     end
 
     local function modify_file_entry()
-        if #files_in_vault == 0 then vim.notify("No files to modify.", vim.log.levels.INFO); return end
+        if #files_in_vault == 0 then vim.notify(CONSTANT.MSG_NO_FILES_MODIFY, vim.log.levels.INFO); return end
         local file_to_modify = files_in_vault[current_selected_file_idx]
         if not file_to_modify then return end
 
@@ -1072,7 +1071,7 @@ function M.ShowFileMenu(vault_object)
         local old_full_path = vim.fn.resolve(vault_object.vaultPath .. "/" .. old_relative_path)
 
         vim.ui.input({
-            prompt = "Enter new file path (relative to vault): ",
+            prompt = CONSTANT.CREATE_NEW_FILE,
             default = old_relative_path
         }, function(new_relative_path)
             if new_relative_path and new_relative_path ~= "" then
@@ -1122,7 +1121,7 @@ function M.ShowFileMenu(vault_object)
     end
 
     local function delete_file_entry()
-        if #files_in_vault == 0 then vim.notify("No files to delete.", vim.log.levels.INFO); return end
+        if #files_in_vault == 0 then vim.notify(CONSTANT.MSG_NO_FILES_DELETE, vim.log.levels.INFO); return end
         local file_to_delete_idx = current_selected_file_idx
         local file_to_delete = files_in_vault[file_to_delete_idx]
         if not file_to_delete then return end
@@ -1275,7 +1274,7 @@ function M.EditFileNotes(vault_object, file_entry)
     close_all_menus()
 
     if not vault_object or not file_entry then
-        vim.notify("Invalid vault or file entry for notes editing.", vim.log.levels.ERROR)
+        vim.notify(CONSTANT.MSG_INVALID_NOTE_PATH, vim.log.levels.ERROR)
         return
     end
 
@@ -1304,7 +1303,7 @@ function M.EditFileNotes(vault_object, file_entry)
         row = (vim.o.lines - math.floor(vim.o.lines * 0.6)) / 2,
         style = 'minimal',
         border = 'double',
-        title = " Survivor's Journal :: " .. file_entry.fileName,
+        title = "",
         title_pos = 'center'
     })
 
@@ -1334,7 +1333,7 @@ function M.EditFileNotes(vault_object, file_entry)
     -- Removed vim.cmd("startinsert") to default to normal mode
 
     local function save_and_close_notes_editor()
-        vim.notify("Attempting to save notes and close editor.", vim.log.levels.INFO)
+        vim.notify(CONSTANT.MSG_ATTEMPT_SAVE_NOTES, vim.log.levels.INFO)
         if notes_editor_buf and vim.api.nvim_buf_is_valid(notes_editor_buf) then
             local current_notes_content = table.concat(vim.api.nvim_buf_get_lines(notes_editor_buf, 0, -1, false), "\n")
 
@@ -1377,18 +1376,18 @@ function M.EditFileNotes(vault_object, file_entry)
                     vim.notify("No changes detected for notes of '" .. target_file_entry.fileName .. "'. Not saving.", vim.log.levels.INFO)
                 end
             else
-                vim.notify("Could not find the target file entry in vault data (after re-location). Notes not saved.", vim.log.levels.ERROR)
+                vim.notify(CONSTANT.MSG_NOTES_NOT_SAVED, vim.log.levels.ERROR)
             end
         else
-            vim.notify("Notes editor buffer is invalid. Skipping save.", vim.log.levels.WARN)
+            vim.notify(CONSTANT.MSG_EDITOR_ATTEMPT, vim.log.levels.WARN)
         end
 
         -- Always close the window/buffer regardless of whether changes were saved
         if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then
             vim.api.nvim_win_close(notes_editor_win, true)
-            vim.notify("Notes editor window closed.", vim.log.levels.INFO)
+            vim.notify(CONSTANT.MSG_NOTES_EDITOR_CLOSED, vim.log.levels.INFO)
         else
-            vim.notify("Notes editor window not valid or already closed.", vim.log.levels.WARN)
+            vim.notify(CONSTANT.MSG_NOTES_EDITOR_INVALID, vim.log.levels.WARN)
         end
         -- Clear module-level references
         notes_editor_win = nil
@@ -1518,17 +1517,17 @@ function M.ShowNotesMenu(vault_object)
 
         -- Get sorting and path display
         local sort_labels = {
-            [0] = "[S] SORT: NAME",
-            [1] = "[S] SORT: UPDATED",
+            [0] = CONSTANT.NOTES_SORT_NAME,
+            [1] = CONSTANT.NOTES_SORT_UPDATED,
         }
 
         local path_display_text = ""
         if M.notes_menu_full_path_display_mode then
-            path_display_text = "[H] DISPLAY: FULL PATH"
+            path_display_text = CONSTANT.DISPLAY_FULL
         else
-            path_display_text = "[H] DISPLAY: NAME ONLY"
+            path_display_text = CONSTANT.DISPLAY_NAME
         end
-        local sort_label = sort_labels[M.current_notes_sort_order] or "[S] SORT: UNKNOWN"
+        local sort_label = sort_labels[M.current_notes_sort_order] or CONSTANT.SORT_UNKNOWN
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
@@ -1568,9 +1567,9 @@ function M.ShowNotesMenu(vault_object)
 
         -- Fixed footer
         table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-        table.insert(display_lines, "> USE [J] [K] TO NAVIGATE.")
-        table.insert(display_lines, "> PRESS [ENTER] TO OPEN NOTE.")
-        table.insert(display_lines, "> PRESS [Q] TO QUIT.")
+        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_1)
+        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_2)
+        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_3)
 
         vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(notes_menu_buf, 0, -1, false, display_lines)
@@ -1648,7 +1647,7 @@ function M.ShowNotesMenu(vault_object)
         if found_vault then
             M.ShowNotesMenu(found_vault)
         else
-            vim.notify("Parent vault no longer exists.", vim.log.levels.ERROR)
+            vim.notify(CONSTANT.MSG_PARENT_VAULT_EXIST, vim.log.levels.ERROR)
         end
     end
 
@@ -1696,10 +1695,6 @@ function M.ShowNotesMenu(vault_object)
 
     -- Ensure true color is enabled
     vim.opt.termguicolors = true
-
-    -- Define highlight groups
-    vim.api.nvim_set_hl(0, "FalloutMenu", { fg = "#00ff00", bg = "black", bold = true })
-    vim.api.nvim_set_hl(0, "FalloutBorder", { fg = "#00ff00", bg = "black" })
 
     notes_menu_win = vim.api.nvim_open_win(notes_menu_buf, true, {
         relative = 'editor',
@@ -1773,7 +1768,7 @@ function M.OpenVaultNotesMenu(vault_num_str)
     if vault_num_str and vault_num_str ~= "" then
         local vault_number = tonumber(vault_num_str)
         if not vault_number then
-            vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+            vim.notify(CONSTANT.INVALID_VAULT_NUMBER_ERROR, vim.log.levels.ERROR)
             return
         end
 
@@ -1804,7 +1799,7 @@ function M.OpenVaultNotesMenu(vault_num_str)
                 return
             end
         else
-            vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
+            vim.notify("No vault selected. Opening Vaults Menu...", vim.log.levels.INFO)
             M.ShowVaultMenu()
             return
         end
@@ -1824,7 +1819,7 @@ function M.OpenVaultFilesMenu(vault_num_str)
     if vault_num_str and vault_num_str ~= "" then
         local vault_number = tonumber(vault_num_str)
         if not vault_number then
-            vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+            vim.notify(CONSTANT.INVALID_VAULT_NUMBER_ERROR, vim.log.levels.ERROR)
             return
         end
 
@@ -1855,7 +1850,7 @@ function M.OpenVaultFilesMenu(vault_num_str)
                 return
             end
         else
-            vim.notify("No vault selected. Opening main Vaults menu...", vim.log.levels.INFO)
+            vim.notify("No vault selected. Opening main Vaults Menu...", vim.log.levels.INFO)
             M.ShowVaultMenu()
             return
         end
@@ -1872,7 +1867,7 @@ function M.EnterVaultByNumber(vault_num_str)
 
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
-        vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+        vim.notify(CONSTANT.INVALID_VAULT_NUMBER_ERROR, vim.log.levels.ERROR)
         return
     end
 
@@ -1901,7 +1896,7 @@ function M.DeleteVaultByNumber(vault_num_str)
 
     local vault_number = tonumber(vault_num_str)
     if not vault_number then
-        vim.notify("Invalid vault number provided. Please use a number.", vim.log.levels.ERROR)
+        vim.notify(CONSTANT.INVALID_VAULT_NUMBER_ERROR, vim.log.levels.ERROR)
         return
     end
 
