@@ -15,8 +15,8 @@ local files_menu = {
 local notes_menu = {
   background = helper.validateHexColor(vim.g.vim_vault_notes_menu_background) or "#000000",
   text       = helper.validateHexColor(vim.g.vim_vault_notes_menu_text) or "#00FF00",
-  sort       = helper.validateNumber(vim.g.vim_vault_notes_sort) or 0,
-  display    = helper.validateBoolean(vim.g.vim_vault_notes_display) or false,
+  sort       = helper.validateNumber(vim.g.vim_vault_notes_menu_sort) or 0,
+  display    = helper.validateBoolean(vim.g.vim_vault_notes_menu_display) or false,
 }
 local notes = {
   background = helper.validateHexColor(vim.g.vim_vault_notes_background) or "#000000",

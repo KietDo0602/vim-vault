@@ -40,32 +40,34 @@ git clone https://github.com/kietdo0602/vim-vault.git
 
 ## 📟 Configuration (Customize Your Terminal)
 
-Add this to your `.vimrc` to get started:
+Add this to your `init.lua` file to get started:
 
 ```vim
-" Change the color of the main menu
-let g:vim_vault_main_menu_background = '#000000'
-let g:vim_vault_main_menu_text = '#FFFFFF'
+--Change the color of the main menu (default: black background, green text)
+vim.g.vim_vault_main_menu_background = '#000000'
+vim.g.vim_vault_main_menu_text = '#FFFFFF'
 
-" Change the color of the files menu
-let g:vim_vault_files_menu_background = '#000000'
-let g:vim_vault_files_menu_text = '#FFFFFF'
+--Change the color of the files menu
+vim.g.vim_vault_files_menu_background = '#000000'
+vim.g.vim_vault_files_menu_text = '#FFFFFF'
 
-" Change the color of the notes menu
-let g:vim_vault_notes_menu_background = '#000000'
-let g:vim_vault_notes_menu_text = '#FFFFFF'
+--Change the color of the notes menu
+vim.g.vim_vault_notes_menu_background = '#000000'
+vim.g.vim_vault_notes_menu_text = '#FFFFFF'
 
-" Change the color of the notes
-let g:vim_vault_notes_background = '#000000'
-let g:vim_vault_notes_text = '#FFFFFF'
+--Change the color of the notes
+vim.g.vim_vault_notes_background = '#000000'
+vim.g.vim_vault_notes_text = '#FFFFFF'
 
-" Set the default sorting / display type
-let g:vim_vault_menu_sort = 0
-let g:vim_vault_menu_display = 1
-let g:vim_vault_files_sort = 2
-let g:vim_vault_files_display = 0
-let g:vim_vault_notes_sort = 0
-let g:vim_vault_notes_display = 1
+--Set the default sorting / display type
+vim.g.vim_vault_menu_sort = 0  -- Sort By: 0: Vault Number, 1: Last Updated, 2: Path
+vim.g.vim_vault_menu_display = 1  -- Display: 0: Display Folder Name Only, 1: Show Full Path
+
+vim.g.vim_vault_files_sort = 1  -- Sort By: 0: File Name, 1: Last Updated
+vim.g.vim_vault_files_display = 0  -- Display: 0: Display File Name Only, 1: Show Full File Path
+
+vim.g.vim_vault_notes_menu_sort = 0 -- Sort By: 0: File Name, 1: Last Updated
+vim.g.vim_vault_notes_menu_display = 1  -- Display: 0: Display File Name Only, 1: Show Full File Path
 ```
 
 ---
