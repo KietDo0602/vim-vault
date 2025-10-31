@@ -55,6 +55,10 @@ let g:vim_vault_files_menu_text = '#FFFFFF'
 let g:vim_vault_notes_menu_background = '#000000'
 let g:vim_vault_notes_menu_text = '#FFFFFF'
 
+" Change the color of the notes
+let g:vim_vault_notes_background = '#000000'
+let g:vim_vault_notes_text = '#FFFFFF'
+
 " Set the default sorting / display type
 let g:vim_vault_menu_sort = 0
 let g:vim_vault_menu_display = 1
