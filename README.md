@@ -42,32 +42,29 @@ git clone https://github.com/kietdo0602/vim-vault.git
 
 Add this to your `init.lua` file to get started:
 
-```vim
---Change the color of the main menu (default: black background, green text)
+```lua
+--Customize the styling of the main menu (default: black background, green text)
+vim.g.vim_vault_main_menu_width = 80 -- Default: 70
 vim.g.vim_vault_main_menu_background = '#000000'
 vim.g.vim_vault_main_menu_text = '#FFFFFF'
 
---Change the color of the files menu
+--Change the styling of the files menu
+vim.g.vim_vault_files_menu_width = 80 -- Default: 70
 vim.g.vim_vault_files_menu_background = '#000000'
 vim.g.vim_vault_files_menu_text = '#FFFFFF'
 
---Change the color of the notes menu
-vim.g.vim_vault_notes_menu_background = '#000000'
-vim.g.vim_vault_notes_menu_text = '#FFFFFF'
-
---Change the color of the notes
+--Change the styling of the notes
+vim.g.vim_vault_notes_width = 80 -- Default: 70
 vim.g.vim_vault_notes_background = '#000000'
 vim.g.vim_vault_notes_text = '#FFFFFF'
 
 --Set the default sorting / display type
 vim.g.vim_vault_menu_sort = 0  -- Sort By: 0: Vault Number, 1: Last Updated, 2: Path
-vim.g.vim_vault_menu_display = 1  -- Display: 0: Display Folder Name Only, 1: Show Full Path
+vim.g.vim_vault_menu_display = 1  -- Display: 0: Smart Display (Difference between) 0: Display Folder Name Only, 1: Show Full Path
 
 vim.g.vim_vault_files_sort = 1  -- Sort By: 0: File Name, 1: Last Updated
 vim.g.vim_vault_files_display = 0  -- Display: 0: Display File Name Only, 1: Show Full File Path
 
-vim.g.vim_vault_notes_menu_sort = 0 -- Sort By: 0: File Name, 1: Last Updated
-vim.g.vim_vault_notes_menu_display = 1  -- Display: 0: Display File Name Only, 1: Show Full File Path
 ```
 
 ---
@@ -75,17 +72,31 @@ vim.g.vim_vault_notes_menu_display = 1  -- Display: 0: Display File Name Only, 1
 ## 🧭 Usage (Survival Guide)
 
 - `:Vaults` — Open the Vaults menu  
+
 - `:Vault [number]` — Select Vault with number
 - `:VaultCreate` — Create a new Vault with current working directory (cwd) as origin
 - `:VaultDelete [number]` — Delete Vault with id number
+
 - `:VaultFiles` — Open Files Menu inside the selected Vault
 - `:VaultFileAdd` — Add current file to selected Vault
 - `:VaultFileDelete` — Delete current file from the selected Vault (if exists)
-- `:VaultNotes` — Open the Notes Menu that shows all the Notes inside a Vault for each File.
+
 - `:VaultNoteOpen` — Open Note of the current File.
 - `:VaultNoteDelete` — Delete note content of the current file
 - `:VaultNoteExport` — Export note of the current file
 
+
+## 🗺️ Basic Mappings
+
+```lua
+-- Mappings for Vim Vault
+vim.api.nvim_set_keymap('n', '<SPACE>vv', '<cmd>Vaults<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>vc', '<cmd>VaultCreate<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>ff', '<cmd>VaultFiles<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>fa', '<cmd>VaultFileAdd<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>no', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap = true, silent = true })
+```
 ---
 
 ## 📦 Requirements

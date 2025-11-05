@@ -123,14 +123,103 @@ local function truncate_middle(str, max_width)
     return string.sub(str, 1, left) .. "..." .. string.sub(str, -right)
 end
 
+function H.get_minimal_suffix_map(paths)
+    local result = {}
+    local split_path = function(p)
+        local parts = {}
+        for part in string.gmatch(p, "[^/\\]+") do
+            table.insert(parts, part)
+        end
+        return parts
+    end
+
+    local filename_groups = {}
+    for _, path in ipairs(paths) do
+        local parts = split_path(path)
+        local name = parts[#parts]
+        filename_groups[name] = filename_groups[name] or {}
+        table.insert(filename_groups[name], path)
+    end
+
+    for name, group in pairs(filename_groups) do
+        if #group == 1 then
+            result[group[1]] = "/" .. name
+        else
+            local split_map = {}
+            for _, path in ipairs(group) do
+                split_map[path] = split_path(path)
+            end
+
+            for _, path in ipairs(group) do
+                local parts = split_map[path]
+                for i = #parts - 1, 1, -1 do
+                    local suffix = {}
+                    for j = i, #parts do
+                        table.insert(suffix, parts[j])
+                    end
+                    local suffix_str = "/" .. table.concat(suffix, "/")
+                    local unique = true
+                    for other_path, other_parts in pairs(split_map) do
+                        if other_path ~= path then
+                            local other_suffix = {}
+                            for j = #other_parts - (#parts - i), #other_parts do
+                                table.insert(other_suffix, other_parts[j])
+                            end
+                            if table.concat(suffix, "/") == table.concat(other_suffix, "/") then
+                                unique = false
+                                break
+                            end
+                        end
+                    end
+                    if unique then
+                        result[path] = suffix_str
+                        break
+                    end
+                end
+            end
+        end
+    end
+
+    return result
+end
+
+-- Extract values from a table of objects from the given key
+function H.extractKeyValues(tbl, key)
+    local result = {}
+    for i, obj in ipairs(tbl) do
+        if obj[key] ~= nil then
+            table.insert(result, obj[key])
+        end
+    end
+    return result
+end
+
 -- Helper function to truncate or wrap long paths, and handle last folder name display
-function H.format_path(path, max_width, full_display_mode)
+function H.format_path(path, max_width, display_mode, all_paths)
     if type(path) ~= 'string' then
         return {""}
     end
 
     local display_path = path
-    if not full_display_mode then
+
+    if display_mode == false then
+        local cleaned_path = H.normalize_path(path)
+        local last_component = string.match(cleaned_path, "[^/\\]*$")
+        display_path = last_component or cleaned_path
+
+    elseif display_mode == 0 then
+        -- Smart display: minimal unique suffix
+        if type(all_paths) == 'table' then
+            local suffix_map = H.get_minimal_suffix_map(all_paths)
+            display_path = suffix_map[path] or path
+        else
+            display_path = path
+        end
+    elseif display_mode == 1 then
+        -- Full path: use as-is
+        display_path = path
+    elseif display_mode == 2 then
+        -- Name only
         local cleaned_path = H.normalize_path(path)
         local last_component = string.match(cleaned_path, "[^/\\]*$")
         display_path = last_component or cleaned_path
@@ -144,21 +233,13 @@ function H.format_path(path, max_width, full_display_mode)
     local current_line = ""
     local parts = {}
 
-    if full_display_mode then
-        for part in string.gmatch(display_path, "[^/\\]+") do
-            table.insert(parts, part)
-        end
-    else
-        table.insert(parts, display_path)
+    for part in string.gmatch(display_path, "[^/\\]+") do
+        table.insert(parts, part)
     end
 
     for i, part in ipairs(parts) do
-        -- truncate part if it's longer than max_width
         part = truncate_middle(part, max_width)
-
         local separator = (i == 1) and "" or (string.match(display_path, "\\") and "\\" or "/")
-        if not full_display_mode then separator = "" end
-
         local addition = separator .. part
 
         if #current_line + #addition <= max_width then
@@ -281,7 +362,7 @@ function H.validateHexColor(value)
     if value:match("^#%x%x%x$") or value:match("^#%x%x%x%x%x%x$") then
         return value
     else
-        return nil
+        return false
     end
 end
 
@@ -297,7 +378,15 @@ function H.validateNumber(value)
     if type(value) == "number" and value > 0 then
         return value
     else
-        return 0
+        return false
+    end
+end
+
+function H.validateMax(value, min)
+    if type(value) == "number" and value > 0 and value >= min then
+        return value
+    else
+        return false
     end
 end
 
@@ -315,6 +404,12 @@ function H.fileExistInBuffer(file_path)
     end
 
     return false
+end
+
+function H.center_text(text, width)
+    local display_width = vim.fn.strdisplaywidth(text)
+    local padding = math.max(math.floor((width - display_width) / 2), 0)
+    return string.rep(" ", padding) .. text .. string.rep(" ", width - padding - display_width)
 end
 
 return H

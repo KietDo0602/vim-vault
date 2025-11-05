@@ -50,16 +50,11 @@ M.file_menu_full_path_display_mode = config.files_menu.display
 M.current_file_sort_order = config.files_menu.sort
 
 
-M.current_notes_sort_order = config.notes_menu.sort
-M.notes_menu_full_path_display_mode = config.notes_menu.display
-
 -- Module-level variables for the menu window and buffer, allowing external functions to close them
 local main_menu_win = nil
 local main_menu_buf = nil
 local file_menu_win = nil
 local file_menu_buf = nil
-local notes_menu_win = nil -- New: Notes menu window
-local notes_menu_buf = nil -- New: Notes menu buffer
 local notes_editor_win = nil -- New: Notes editor window
 local notes_editor_buf = nil -- New: Notes editor buffer
 
@@ -78,25 +73,18 @@ read_vault_data_into_M()
 
 
 -- Constants for main menu layout
-local MAIN_MENU_WIDTH = 80
+local MAIN_MENU_WIDTH = config.main_menu.width
 local MAIN_MENU_HEADER_LINES_COUNT = 10 -- "", "Number...", "----"
 local MAIN_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
 local MAIN_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- You can adjust this value as needed
 local MAIN_MENU_HEIGHT = MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_FOOTER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT
 
 -- Constants for file menu layout
-local FILE_MENU_WIDTH = 80
+local FILE_MENU_WIDTH = config.files_menu.width
 local FILE_MENU_HEADER_LINES_COUNT = 11 -- "", "File Name...", "----"
 local FILE_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
 local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed for file list
 local FILE_MENU_HEIGHT = FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_FOOTER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT
-
--- Constants for notes menu layout (similar to file menu)
-local NOTES_MENU_WIDTH = 80
-local NOTES_MENU_HEADER_LINES_COUNT = 11 -- "", "File Name...", "----"
-local NOTES_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'Enter'..."
-local NOTES_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed
-local NOTES_MENU_HEIGHT = NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_FOOTER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT
 
 
 -- Helper to get filename and parent directory from a full path using standard Lua string functions
@@ -170,11 +158,6 @@ local function close_all_menus()
         file_menu_win = nil
         file_menu_buf = nil
     end
-    if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then -- Close notes menu
-        vim.api.nvim_win_close(notes_menu_win, true)
-        notes_menu_win = nil
-        notes_menu_buf = nil
-    end
     if notes_editor_win and vim.api.nvim_win_is_valid(notes_editor_win) then -- Close notes editor
         vim.api.nvim_win_close(notes_editor_win, true)
         notes_editor_win = nil
@@ -246,16 +229,27 @@ function M.ShowVaultMenu()
         local line_map = {} -- This is the table that becomes vault_line_map
         local current_line_idx = 0 -- 0-based index for the 'lines' table
 
-        local path_max_width = 40
+        -- Dynamically calculate column widths
+        local available_width = MAIN_MENU_WIDTH - 2
+        local vault_col_width = math.floor(available_width * 0.2)
+        local path_col_width = math.floor(available_width * 0.5)
+        local updated_col_width = available_width - vault_col_width - path_col_width
 
-        for i, vault in ipairs(M.vaults) do -- It iterates M.vaults
-            local formatted_paths = helper.format_path(vault.vaultPath, path_max_width, M.full_path_display_mode)
+        -- Use dynamic path width for formatting
+        local path_max_width = path_col_width
+
+        for i, vault in ipairs(M.vaults) do
+            local all_folders = helper.extractKeyValues(M.vaults, 'vaultPath')
+            local formatted_paths = helper.format_path(vault.vaultPath, path_max_width, M.full_path_display_mode, all_folders)
             local timestamp = helper.format_timestamp(vault.lastUpdated)
 
             local start_line_for_vault = current_line_idx
 
             -- First line with vault number and timestamp
-            local first_line = string.format("%-10d %-45s %-20s",
+            local first_line = string.format(
+                "%-" .. vault_col_width .. "d %-" ..
+                path_col_width .. "s %-" ..
+                updated_col_width .. "s",
                 vault.vaultNumber,
                 formatted_paths[1] or "",
                 timestamp
@@ -265,7 +259,10 @@ function M.ShowVaultMenu()
 
             -- Additional lines for wrapped paths (if any)
             for j = 2, #formatted_paths do
-                local continuation_line = string.format("%-10s %-45s %-20s",
+                local continuation_line = string.format(
+                    "%-" .. vault_col_width .. "s %-" ..
+                    path_col_width .. "s %-" ..
+                    updated_col_width .. "s",
                     "",
                     formatted_paths[j],
                     ""
@@ -277,6 +274,7 @@ function M.ShowVaultMenu()
             local end_line_for_vault = current_line_idx - 1
             line_map[i] = {start_line_idx = start_line_for_vault, end_line_idx = end_line_for_vault}
         end
+
         return lines, line_map
     end
 
@@ -299,33 +297,63 @@ function M.ShowVaultMenu()
         }
 
         local path_display_text = ""
-        if M.full_path_display_mode then
+        if M.full_path_display_mode == 0 then
+            path_display_text = CONSTANT.DISPLAY_SMART 
+        elseif M.full_path_display_mode == 1 then
             path_display_text = CONSTANT.DISPLAY_FULL
         else
             path_display_text = CONSTANT.DISPLAY_NAME
         end
+
         local sort_label = sort_labels[M.current_sort_order] or CONSTANT.SORT_UNKNOWN
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
 
-        -- Center the entire line within 80 characters
+        -- Center the entire line within MAIN_MENU_WIDTH amount of characters
         local padding = math.floor((MAIN_MENU_WIDTH - #combined) / 2)
         local line = string.rep(" ", padding) .. combined
 
         local sort_and_path_display_line = line:sub(1, MAIN_MENU_WIDTH) -- keep it under terminal width
 
         -- Fixed header
-        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
-        table.insert(display_lines, "================================================================================")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "                          ░▒▓█  VAULTS DIRECTORY  █▓▒░                          ")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "================================================================================")
+        local left_text = "> ROBCO INDUSTRIES (TM) TERMLINK"
+        local right_text = "> VAULT-TEC TERMINAL V.2077"
+        local space_between = MAIN_MENU_WIDTH - #left_text - #right_text
+        table.insert(display_lines, left_text .. string.rep(" ", math.max(space_between, 0)) .. right_text)
+
+        -- Decorative lines
+        table.insert(display_lines, string.rep("=", MAIN_MENU_WIDTH))
+        table.insert(display_lines, string.rep(" ", MAIN_MENU_WIDTH))
+        table.insert(display_lines, helper.center_text("░▒▓█  VAULTS DIRECTORY  █▓▒░", MAIN_MENU_WIDTH))
+        table.insert(display_lines, string.rep(" ", MAIN_MENU_WIDTH))
+        table.insert(display_lines, string.rep("=", MAIN_MENU_WIDTH))
+
+        -- Vault listing header
         table.insert(display_lines, sort_and_path_display_line)
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, string.format("%-10s %-45s %-20s", "VAULT", "VAULT PATH", "LAST UPDATED"))
+
+
+        -- Dynamically calculate column widths
+        local available_width = MAIN_MENU_WIDTH - 2
+
+        -- Dynamically calculate column widths
+        local vault_col_width = math.floor(available_width * 0.2)
+        local path_col_width = math.floor(available_width * 0.5)
+        local updated_col_width = available_width - vault_col_width - path_col_width
+
+        -- Format header line with dynamic widths
+        local header_line = string.format(
+            "%-" .. vault_col_width .. "s %-"
+            .. path_col_width .. "s %-"
+            .. updated_col_width .. "s",
+            "VAULT", "VAULT PATH", "LAST UPDATED"
+        )
+        table.insert(display_lines, header_line)
+
         table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
+
+
 
         -- Add scrollable vault content
         local num_total_vault_lines = #all_vault_lines
@@ -437,6 +465,22 @@ function M.ShowVaultMenu()
         current_scroll_top_line_idx = math.max(0, math.min(current_scroll_top_line_idx, max_scroll_top_line_idx))
 
         update_main_menu_display()
+    end
+
+    -- Move to the first vault option
+    local function move_to_first_vault()
+        if #M.vaults == 0 then return end
+        while current_selected_vault_idx > 1 do
+            move_main_menu_cursor(-1)
+        end
+    end
+
+    -- Move to the last vault option
+    local function move_to_last_vault()
+        if #M.vaults == 0 then return end
+        while current_selected_vault_idx < #M.vaults do
+            move_main_menu_cursor(1)
+        end
     end
 
     -- Refresh function (closes current window and re-opens menu to reflect changes)
@@ -644,6 +688,8 @@ function M.ShowVaultMenu()
     vim.keymap.set('n', 'k', function() move_main_menu_cursor(-1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_main_menu_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_main_menu_cursor(-1) end, opts)
+    vim.keymap.set('n', 'gg', function() move_to_first_vault() end, opts)
+    vim.keymap.set('n', 'G', function() move_to_last_vault() end, opts)
     vim.keymap.set('n', 'c', create_new_vault_interactive, opts)
     vim.keymap.set('n', 'm', modify_vault_path_interactive, opts)
     vim.keymap.set('n', 'd', delete_vault_interactive, opts)
@@ -659,7 +705,7 @@ function M.ShowVaultMenu()
 
     -- New key mapping for toggling path display
     vim.keymap.set('n', 'h', function()
-        M.full_path_display_mode = not M.full_path_display_mode
+        M.full_path_display_mode = (M.full_path_display_mode + 1) % 3
         refresh_main_menu()
     end, opts)
 
@@ -677,7 +723,7 @@ function M.ShowVaultMenu()
     })
 
     -- Disable other movements within the menu buffer to prevent unintended actions
-    local disabled_keys = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg'}
+    local disabled_keys = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^'}
     for _, key in ipairs(disabled_keys) do
         vim.keymap.set('n', key, '<Nop>', opts)
     end
@@ -835,16 +881,23 @@ function M.ShowFileMenu(vault_object)
         local line_map = {}
         local current_line_idx = 0
 
-        local filename_max_width = 40
+        -- Dynamically calculate column widths
+        local col1 = math.floor(FILE_MENU_WIDTH * 0.7)
+        local col2 = FILE_MENU_WIDTH - col1 - 1
+
+        -- Use dynamic filename width for formatting
+        local filename_max_width = col1
 
         for i, file_entry in ipairs(files_in_vault) do
-            local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode)
-
+            local all_files = helper.extractKeyValues(files_in_vault, 'fileName')
+            local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.file_menu_full_path_display_mode, all_files)
             local timestamp = helper.format_timestamp(file_entry.lastUpdated)
 
             local start_line_for_file = current_line_idx
 
-            local first_line = string.format("%-50s %-20s",
+            -- First line with filename and timestamp
+            local first_line = string.format(
+                "%-" .. col1 .. "s %-" .. col2 .. "s",
                 formatted_filename[1] or "",
                 timestamp
             )
@@ -853,16 +906,19 @@ function M.ShowFileMenu(vault_object)
 
             -- Additional lines for wrapped filenames
             for j = 2, #formatted_filename do
-                local continuation_line = string.format("%-50s %-20s",
+                local continuation_line = string.format(
+                    "%-" .. col1 .. "s %-" .. col2 .. "s",
                     formatted_filename[j],
                     " "
                 )
                 table.insert(lines, continuation_line)
                 current_line_idx = current_line_idx + 1
             end
+
             local end_line_for_file = current_line_idx - 1
             line_map[i] = {start_line_idx = start_line_for_file, end_line_idx = end_line_for_file}
         end
+
         return lines, line_map
     end
 
@@ -880,36 +936,53 @@ function M.ShowFileMenu(vault_object)
         }
 
         local path_display_text = ""
-        if M.file_menu_full_path_display_mode then
+        if M.file_menu_full_path_display_mode == 0 then
+            path_display_text = CONSTANT.DISPLAY_SMART 
+        elseif M.file_menu_full_path_display_mode == 1 then
             path_display_text = CONSTANT.DISPLAY_FULL
         else
             path_display_text = CONSTANT.DISPLAY_NAME
         end
+
         local sort_label = sort_labels[M.current_file_sort_order] or CONSTANT.SORT_UNKNOWN
 
         -- Combine both labels with spacing
         local combined = sort_label .. "    " .. path_display_text
 
-        -- Center the entire line within 80 characters
+        -- Center the entire line within FILE_MENU_WIDTH amount of characters
         local padding = math.floor((FILE_MENU_WIDTH - #combined) / 2)
         local line = string.rep(" ", padding) .. combined
 
         local sort_and_path_display_line = line:sub(1, FILE_MENU_WIDTH) -- keep it under terminal width
 
-        local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
+        local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false, false)[1]
 
         -- Fixed header
-        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
+        local left_text = "> ROBCO INDUSTRIES (TM) TERMLINK"
+        local right_text = "> VAULT-TEC TERMINAL V.2077"
+        local space_between = FILE_MENU_WIDTH - #left_text - #right_text
+        table.insert(display_lines, left_text .. string.rep(" ", math.max(space_between, 0)) .. right_text)
+
+        -- Current vault line
         table.insert(display_lines, string.format(">> CURRENT VAULT: %s", last_folder_name))
-        table.insert(display_lines, "================================================================================")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "                          ░▒▓█  FILES DIRECTORY  █▓▒░                           ")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "================================================================================")
+
+        -- Decorative lines and centered title
+        table.insert(display_lines, string.rep("=", FILE_MENU_WIDTH))
+        table.insert(display_lines, string.rep(" ", FILE_MENU_WIDTH))
+        table.insert(display_lines, helper.center_text("░▒▓█  FILES DIRECTORY  █▓▒░", FILE_MENU_WIDTH))
+        table.insert(display_lines, string.rep(" ", FILE_MENU_WIDTH))
+        table.insert(display_lines, string.rep("=", FILE_MENU_WIDTH))
+
+        -- File listing header
         table.insert(display_lines, sort_and_path_display_line)
-        table.insert(display_lines, string.rep("─",  FILE_MENU_WIDTH))
-        table.insert(display_lines, string.format("%-50s %-20s", "FILE NAME", "LAST UPDATED"))
-        table.insert(display_lines, string.rep("─",   FILE_MENU_WIDTH))
+        table.insert(display_lines, string.rep("─", FILE_MENU_WIDTH))
+
+        -- Column widths (adjust if needed)
+        local col1 = math.floor(FILE_MENU_WIDTH * 0.7)
+        local col2 = FILE_MENU_WIDTH - col1 - 1
+        table.insert(display_lines, string.format("%-" .. col1 .. "s %-" .. col2 .. "s", "FILE NAME", "LAST UPDATED"))
+        table.insert(display_lines, string.rep("─", FILE_MENU_WIDTH))
+
 
         -- Scrollable content
         local num_total_file_lines = #all_file_display_lines
@@ -931,6 +1004,7 @@ function M.ShowFileMenu(vault_object)
         table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_3)
         table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_4)
         table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_5)
+        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_6)
 
         vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(file_menu_buf, 0, -1, false, display_lines)
@@ -990,6 +1064,22 @@ function M.ShowFileMenu(vault_object)
         current_file_scroll_top_line_idx = math.max(0, math.min(current_file_scroll_top_line_idx, max_scroll_top_line_idx))
 
         update_file_menu_display()
+    end
+
+    -- Move to the first vault option
+    local function move_to_first_file()
+        if #files_in_vault == 0 then return end
+        while current_selected_file_idx > 1 do
+            move_file_cursor(-1)
+        end
+    end
+
+    -- Move to the last vault option
+    local function move_to_last_file()
+        if #files_in_vault == 0 then return end
+        while current_selected_file_idx < #files_in_vault do
+            move_file_cursor(1)
+        end
     end
 
     local function refresh_file_menu()
@@ -1161,8 +1251,29 @@ function M.ShowFileMenu(vault_object)
         end)
     end
 
+    local function open_notes_editor()
+        if #files_in_vault == 0 then vim.notify("No files to edit notes for.", vim.log.levels.INFO); return end
+        local selected_file_from_display = files_in_vault[current_selected_file_idx]
+
+        if not selected_file_from_display then return end
+
+        local original_file_entry = nil
+        for _, f_orig in ipairs(vault_object.files) do 
+            if f_orig.fileName == selected_file_from_display.fileName then
+                original_file_entry = f_orig
+                break
+            end
+        end
+
+        if original_file_entry then
+            M.EditFileNotes(vault_object, original_file_entry)
+        else
+            vim.notify("Error: Original file entry not found for notes editing.", vim.log.levels.ERROR)
+        end
+    end
+
     -- Get the last component of the vault path for the title
-    local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false)[1]
+    local last_folder_name = helper.format_path(vault_object.vaultPath, FILE_MENU_WIDTH, false, false)[1]
 
 
     -- Colors for highlight groups
@@ -1179,7 +1290,7 @@ function M.ShowFileMenu(vault_object)
 
     vim.api.nvim_set_hl(0, 'VaultSelected', {
       fg = config.files_menu.background,     -- Opposite of the normal background and foreground color
-      bg = config.main_menu.text,
+      bg = config.files_menu.text,
       bold = true
     })
 
@@ -1221,9 +1332,12 @@ function M.ShowFileMenu(vault_object)
     vim.keymap.set('n', 'k', function() move_file_cursor(-1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_file_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_file_cursor(-1) end, opts)
+    vim.keymap.set('n', 'gg', move_to_first_file, opts)
+    vim.keymap.set('n', 'G', move_to_last_file, opts)
     vim.keymap.set('n', 'c', create_file_entry, opts)
     vim.keymap.set('n', 'm', modify_file_entry, opts)
     vim.keymap.set('n', 'd', delete_file_entry, opts)
+    vim.keymap.set('n', 'n', open_notes_editor, opts)
     vim.keymap.set('n', '<CR>', function() M.open_file_entry(vault_object, nil, current_selected_file_idx, files_in_vault) end, opts)
     vim.keymap.set('n', 'q', function() close_all_menus() end, opts)
     vim.keymap.set('n', '<Esc>', function() close_all_menus() end, opts)
@@ -1237,13 +1351,13 @@ function M.ShowFileMenu(vault_object)
 
     -- New key mapping for toggling file path display in file menu
     vim.keymap.set('n', 'h', function()
-        M.file_menu_full_path_display_mode = not M.file_menu_full_path_display_mode
+        M.file_menu_full_path_display_mode = (M.file_menu_full_path_display_mode + 1) % 3
         update_file_menu_display()
     end, opts)
 
 
     -- Disable other movements for file menu
-    local disabled_keys_file_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg'}
+    local disabled_keys_file_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^'}
     for _, key in ipairs(disabled_keys_file_menu) do
         vim.keymap.set('n', key, '<Nop>', opts)
     end
@@ -1297,9 +1411,9 @@ function M.EditFileNotes(vault_object, file_entry)
 
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
         relative = 'editor',
-        width = math.floor(vim.o.columns * 0.8),
+        width = math.floor(vim.o.columns * 0.7),
         height = math.floor(vim.o.lines * 0.6),
-        col = (vim.o.columns - math.floor(vim.o.columns * 0.8)) / 2,
+        col = (vim.o.columns - math.floor(vim.o.columns * 0.7)) / 2,
         row = (vim.o.lines - math.floor(vim.o.lines * 0.6)) / 2,
         style = 'minimal',
         border = 'double',
@@ -1439,374 +1553,6 @@ function M.EditFileNotes(vault_object, file_entry)
     for _, key in ipairs(disabled_keys_notes_editor) do
         vim.keymap.set('n', key, '<Nop>', opts_normal)
     end
-end
-
-function M.ShowNotesMenu(vault_object)
-    close_all_menus()
-
-    if not vault_object or not vault_object.vaultPath or not vault_object.files then
-        vim.notify("Invalid vault selected for Notes Menu.", vim.log.levels.ERROR)
-        return
-    end
-
-    local files_in_vault = vim.deepcopy(vault_object.files)
-    helper.sort_files(files_in_vault, M.current_notes_sort_order)
-
-    local current_selected_file_idx = 1
-    local current_notes_scroll_top_line_idx = 0
-    local all_notes_display_lines = {}
-    local notes_line_map = {}
-
-    local highlight_ns_id = vim.api.nvim_create_namespace('notes_menu_highlight')
-
-    -- Determine initial selection based on lastSelectedFile
-    if vault_object.lastSelectedFile then
-        local found_idx = nil
-        for i, file_entry in ipairs(files_in_vault) do
-            if file_entry.fileName == vault_object.lastSelectedFile then
-                found_idx = i
-                break
-            end
-        end
-        if found_idx then
-            current_selected_file_idx = found_idx
-        end
-    end
-
-    -- Function to generate all file display lines for notes menu
-    local function generate_full_notes_display_info()
-        local lines = {}
-        local line_map = {}
-        local current_line_idx = 0
-
-        local filename_max_width = 45
-
-        for i, file_entry in ipairs(files_in_vault) do
-            local formatted_filename = helper.format_path(file_entry.fileName, filename_max_width, M.notes_menu_full_path_display_mode)
-            local timestamp = helper.format_timestamp(file_entry.lastUpdated)
-
-            local start_line_for_file = current_line_idx
-
-            local first_line = string.format("%-50s %-20s",
-                formatted_filename[1] or "",
-                timestamp
-            )
-            table.insert(lines, first_line)
-            current_line_idx = current_line_idx + 1
-
-            -- Additional lines for wrapped filenames
-            for j = 2, #formatted_filename do
-                local continuation_line = string.format("%-50s %-20s",
-                    formatted_filename[j],
-                    ""
-                )
-                table.insert(lines, continuation_line)
-                current_line_idx = current_line_idx + 1
-            end
-            local end_line_for_file = current_line_idx - 1
-            line_map[i] = {start_line_idx = start_line_for_file, end_line_idx = end_line_for_file}
-        end
-        return lines, line_map
-    end
-
-    -- Function to update the notes menu content
-    local function update_notes_menu_display()
-        all_notes_display_lines, notes_line_map = generate_full_notes_display_info()
-
-        local display_lines = {}
-
-        -- Get sorting and path display
-        local sort_labels = {
-            [0] = CONSTANT.NOTES_SORT_NAME,
-            [1] = CONSTANT.NOTES_SORT_UPDATED,
-        }
-
-        local path_display_text = ""
-        if M.notes_menu_full_path_display_mode then
-            path_display_text = CONSTANT.DISPLAY_FULL
-        else
-            path_display_text = CONSTANT.DISPLAY_NAME
-        end
-        local sort_label = sort_labels[M.current_notes_sort_order] or CONSTANT.SORT_UNKNOWN
-
-        -- Combine both labels with spacing
-        local combined = sort_label .. "    " .. path_display_text
-
-        -- Center the entire line within 80 characters
-        local padding = math.floor((NOTES_MENU_WIDTH - #combined) / 2)
-        local line = string.rep(" ", padding) .. combined
-
-        local sort_and_path_display_line = line:sub(1, NOTES_MENU_WIDTH) -- keep it under terminal width
-        local last_folder_name = helper.format_path(vault_object.vaultPath, NOTES_MENU_WIDTH, false)[1]
-
-        -- Fixed header
-        table.insert(display_lines, "> ROBCO INDUSTRIES (TM) TERMLINK                     > VAULT-TEC TERMINAL V.2077")
-        table.insert(display_lines, string.format(">> CURRENT VAULT: %s", last_folder_name))
-        table.insert(display_lines, "================================================================================")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "                          ░▒▓█  NOTES DIRECTORY  █▓▒░                           ")
-        table.insert(display_lines, "                                                                                ")
-        table.insert(display_lines, "================================================================================")
-        table.insert(display_lines, sort_and_path_display_line)
-        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-        table.insert(display_lines, string.format("%-50s %-20s", "FILE NAME",  "LAST UPDATED"))
-        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-
-        -- Scrollable content
-        local num_total_file_lines = #all_notes_display_lines
-        local current_display_end_line_idx = math.min(current_notes_scroll_top_line_idx + NOTES_MENU_SCROLLABLE_AREA_HEIGHT, num_total_file_lines)
-
-        for i = current_notes_scroll_top_line_idx, current_display_end_line_idx - 1 do
-            table.insert(display_lines, all_notes_display_lines[i + 1])
-        end
-
-        -- Pad with empty lines
-        while #display_lines - NOTES_MENU_HEADER_LINES_COUNT < NOTES_MENU_SCROLLABLE_AREA_HEIGHT do
-            table.insert(display_lines, "")
-        end
-
-        -- Fixed footer
-        table.insert(display_lines, string.rep("─", NOTES_MENU_WIDTH))
-        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_1)
-        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_2)
-        table.insert(display_lines, CONSTANT.NOTES_INSTRUCTIONS_3)
-
-        vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', true)
-        vim.api.nvim_buf_set_lines(notes_menu_buf, 0, -1, false, display_lines)
-        vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
-
-        -- Clear existing highlights
-        vim.api.nvim_buf_clear_namespace(notes_menu_buf, highlight_ns_id, 0, -1)
-
-        -- Apply highlight to the currently selected file
-        if #files_in_vault > 0 and notes_line_map[current_selected_file_idx] then
-            local range = notes_line_map[current_selected_file_idx]
-            local highlight_start_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_notes_scroll_top_line_idx)
-            local highlight_end_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.end_line_idx - current_notes_scroll_top_line_idx)
-
-            highlight_start_line_in_buffer = math.max(NOTES_MENU_HEADER_LINES_COUNT, highlight_start_line_in_buffer)
-            highlight_end_line_in_buffer = math.min(NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT - 1, highlight_end_line_in_buffer)
-
-            for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
-                if line_num >= NOTES_MENU_HEADER_LINES_COUNT and line_num < NOTES_MENU_HEADER_LINES_COUNT + NOTES_MENU_SCROLLABLE_AREA_HEIGHT then
-                    vim.api.nvim_buf_add_highlight(notes_menu_buf, highlight_ns_id, 'VaultSelected', line_num, 0, -1)
-                end
-            end
-        end
-
-        -- Set cursor position
-        if #files_in_vault > 0 and notes_line_map[current_selected_file_idx] then
-            local range = notes_line_map[current_selected_file_idx]
-            local cursor_line_in_buffer = NOTES_MENU_HEADER_LINES_COUNT + (range.start_line_idx - current_notes_scroll_top_line_idx)
-            vim.api.nvim_win_set_cursor(notes_menu_win, {cursor_line_in_buffer + 1, 0})
-        else
-            vim.api.nvim_win_set_cursor(notes_menu_win, {NOTES_MENU_HEADER_LINES_COUNT + 1, 0})
-        end
-    end
-
-    -- Navigation logic for notes menu
-    local function move_notes_cursor(direction)
-        if #files_in_vault == 0 then return end
-
-        local new_selected_file_idx = current_selected_file_idx + direction
-        new_selected_file_idx = math.max(1, math.min(#files_in_vault, new_selected_file_idx))
-
-        if new_selected_file_idx == current_selected_file_idx then return end
-
-        current_selected_file_idx = new_selected_file_idx
-
-        local selected_file_line_range = notes_line_map[current_selected_file_idx]
-        local selected_file_start_line = selected_file_line_range.start_line_idx
-        local selected_file_end_line = selected_file_line_range.end_line_idx
-
-        if selected_file_start_line < current_notes_scroll_top_line_idx then
-            current_notes_scroll_top_line_idx = selected_file_start_line
-        elseif selected_file_end_line >= current_notes_scroll_top_line_idx + NOTES_MENU_SCROLLABLE_AREA_HEIGHT then
-            current_notes_scroll_top_line_idx = selected_file_end_line - NOTES_MENU_SCROLLABLE_AREA_HEIGHT + 1
-        end
-
-        local max_scroll_top_line_idx = math.max(0, #all_notes_display_lines - NOTES_MENU_SCROLLABLE_AREA_HEIGHT)
-        current_notes_scroll_top_line_idx = math.max(0, math.min(current_notes_scroll_top_line_idx, max_scroll_top_line_idx))
-
-        update_notes_menu_display()
-    end
-
-    local function refresh_notes_menu()
-        read_vault_data_into_M()
-        refresh_last_selected_vault_reference()
-
-        local found_vault = nil
-        for _, v in ipairs(M.vaults) do
-            if v.vaultNumber == vault_object.vaultNumber then
-                found_vault = v
-                break
-            end
-        end
-
-        close_all_menus()
-        if found_vault then
-            M.ShowNotesMenu(found_vault)
-        else
-            vim.notify(CONSTANT.MSG_PARENT_VAULT_EXIST, vim.log.levels.ERROR)
-        end
-    end
-
-    local function open_notes_editor()
-        if #files_in_vault == 0 then vim.notify("No files to edit notes for.", vim.log.levels.INFO); return end
-        local selected_file_from_display = files_in_vault[current_selected_file_idx]
-
-        if not selected_file_from_display then return end
-
-        local original_file_entry = nil
-        for _, f_orig in ipairs(vault_object.files) do 
-            if f_orig.fileName == selected_file_from_display.fileName then
-                original_file_entry = f_orig
-                break
-            end
-        end
-
-        if original_file_entry then
-            M.EditFileNotes(vault_object, original_file_entry)
-        else
-            vim.notify("Error: Original file entry not found for notes editing.", vim.log.levels.ERROR)
-        end
-    end
-
-
-    -- Colors for highlight groups
-    vim.api.nvim_set_hl(0, 'FalloutMenu', {
-        fg = config.notes_menu.text,
-        bg = config.notes_menu.background,
-        bold = true
-    })
-
-    vim.api.nvim_set_hl(0, 'FalloutBorder', {
-        fg = config.notes_menu.text,
-        bg = config.notes_menu.background,
-    })
-
-    vim.api.nvim_set_hl(0, 'VaultSelected', {
-      fg = config.notes_menu.background,     -- Opposite of the normal background and foreground color
-      bg = config.notes_menu.text,
-      bold = true
-    })
-
-    notes_menu_buf = vim.api.nvim_create_buf(false, true)
-
-    -- Ensure true color is enabled
-    vim.opt.termguicolors = true
-
-    notes_menu_win = vim.api.nvim_open_win(notes_menu_buf, true, {
-        relative = 'editor',
-        width = NOTES_MENU_WIDTH,
-        height = NOTES_MENU_HEIGHT,
-        col = (vim.o.columns - NOTES_MENU_WIDTH) / 2,
-        row = (vim.o.lines - NOTES_MENU_HEIGHT) / 2,
-        style = 'minimal',
-        border = 'double',
-        title = "",
-        title_pos = 'center'
-    })
-
-    -- Apply Fallout-style highlights
-    vim.api.nvim_win_set_option(notes_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
-
-    vim.api.nvim_buf_set_option(notes_menu_buf, 'buftype', 'nofile')
-    vim.api.nvim_buf_set_option(notes_menu_buf, 'modifiable', false)
-
-    if #files_in_vault > 0 then
-    else
-        current_selected_file_idx = 0
-        current_notes_scroll_top_line_idx = 0
-    end
-    update_notes_menu_display()
-
-    local opts = {buffer = notes_menu_buf, nowait = true, silent = true}
-    vim.keymap.set('n', 'j', function() move_notes_cursor(1) end, opts)
-    vim.keymap.set('n', 'k', function() move_notes_cursor(-1) end, opts)
-    vim.keymap.set('n', '<Down>', function() move_notes_cursor(1) end, opts)
-    vim.keymap.set('n', '<Up>', function() move_notes_cursor(-1) end, opts)
-    vim.keymap.set('n', '<CR>', open_notes_editor, opts)
-    vim.keymap.set('n', 'q', function() close_all_menus() end, opts)
-    vim.keymap.set('n', '<Esc>', function() close_all_menus() end, opts)
-
-    vim.keymap.set('n', 's', function()
-        M.current_notes_sort_order = (M.current_notes_sort_order + 1) % 2
-        refresh_notes_menu()
-    end, opts)
-
-    vim.keymap.set('n', 'h', function()
-        M.notes_menu_full_path_display_mode = not M.notes_menu_full_path_display_mode
-        update_notes_menu_display()
-    end, opts)
-
-    local disabled_keys_notes_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^', 'G', 'gg', 'c', 'm', 'd'}
-    for _, key in ipairs(disabled_keys_notes_menu) do
-        vim.keymap.set('n', key, '<Nop>', opts)
-    end
-
-    vim.api.nvim_create_autocmd({'BufLeave', 'WinLeave', 'FocusLost'}, {
-        buffer = notes_menu_buf,
-        once = true,
-        callback = function()
-            if notes_menu_win and vim.api.nvim_win_is_valid(notes_menu_win) then
-                vim.api.nvim_win_close(notes_menu_win, true)
-                notes_menu_win = nil
-                notes_menu_buf = nil
-            end
-        end
-    })
-end
-
--- Open the Notes Menu for a specified vault number or the last selected one
-function M.OpenVaultNotesMenu(vault_num_str)
-    read_vault_data_into_M() -- Always load freshest data
-    refresh_last_selected_vault_reference() -- Ensure last_selected_vault is current
-
-    local target_vault = nil
-
-    if vault_num_str and vault_num_str ~= "" then
-        local vault_number = tonumber(vault_num_str)
-        if not vault_number then
-            vim.notify(CONSTANT.INVALID_VAULT_NUMBER_ERROR, vim.log.levels.ERROR)
-            return
-        end
-
-        for _, vault in ipairs(M.vaults) do
-            if vault.vaultNumber == vault_number then
-                target_vault = vault
-                break
-            end
-        end
-        if not target_vault then
-            vim.notify("Vault number " .. vault_number .. " not found.", vim.log.levels.WARN)
-            return
-        end
-    else
-        if M.last_selected_vault then
-            local found_match = false
-            for _, vault in ipairs(M.vaults) do
-                if vault.vaultNumber == M.last_selected_vault.vaultNumber then
-                    target_vault = vault
-                    found_match = true
-                    break
-                end
-            end
-            if not found_match then
-                vim.notify("Last selected vault no longer exists. Please select a vault first or provide a number.", vim.log.levels.WARN)
-                M.last_selected_vault = nil
-                M.ShowVaultMenu() 
-                return
-            end
-        else
-            vim.notify("No vault selected. Opening Vaults Menu...", vim.log.levels.INFO)
-            M.ShowVaultMenu()
-            return
-        end
-    end
-
-    M.last_selected_vault = target_vault
-    M.ShowNotesMenu(target_vault)
 end
 
 -- Open the Files Menu for a specified vault number or the last selected one
