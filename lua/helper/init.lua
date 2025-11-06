@@ -355,7 +355,7 @@ end
 
 function H.validateHexColor(value)
     if type(value) ~= "string" then
-        return nil
+        return false
     end
 
     -- Match # followed by 3 or 6 hexadecimal digits
@@ -366,11 +366,11 @@ function H.validateHexColor(value)
     end
 end
 
-function H.validateBoolean(value)
+function H.validateBoolean(value, default)
     if type(value) == "boolean" then
         return value
     else
-        return false
+        return default
     end
 end
 
