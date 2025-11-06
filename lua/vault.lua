@@ -42,12 +42,14 @@ local function read_vault_data_into_M()
 end
 
 
+M.show_guide = config.main_menu.guide
 M.current_sort_order = config.main_menu.sort
 M.full_path_display_mode = config.main_menu.display
 
 
-M.file_menu_full_path_display_mode = config.files_menu.display
+M.file_menu_show_guide = config.main_menu.guide
 M.current_file_sort_order = config.files_menu.sort
+M.file_menu_full_path_display_mode = config.files_menu.display
 
 
 -- Module-level variables for the menu window and buffer, allowing external functions to close them
@@ -74,16 +76,26 @@ read_vault_data_into_M()
 
 -- Constants for main menu layout
 local MAIN_MENU_WIDTH = config.main_menu.width
-local MAIN_MENU_HEADER_LINES_COUNT = 10 -- "", "Number...", "----"
-local MAIN_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Path: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
-local MAIN_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- You can adjust this value as needed
-local MAIN_MENU_HEIGHT = MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_FOOTER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT
+local MAIN_MENU_HEADER_LINES_COUNT = 10
+local MAIN_MENU_FOOTER_LINES_COUNT = 9
+
+if not M.show_guide then
+  MAIN_MENU_FOOTER_LINES_COUNT = 0
+end
+
+local MAIN_MENU_SCROLLABLE_AREA_HEIGHT = 10
+local MAIN_MENU_HEIGHT = MAIN_MENU_HEADER_LINES_COUNT + MAIN_MENU_SCROLLABLE_AREA_HEIGHT + MAIN_MENU_FOOTER_LINES_COUNT
 
 -- Constants for file menu layout
 local FILE_MENU_WIDTH = config.files_menu.width
-local FILE_MENU_HEADER_LINES_COUNT = 11 -- "", "File Name...", "----"
-local FILE_MENU_FOOTER_LINES_COUNT = 9 -- "", "----", "", "Sort: ...", "Press 'c'...", "Press 'm'...", "Press 'd'...", "Press 'Enter'..."
-local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10 -- Adjust as needed for file list
+local FILE_MENU_HEADER_LINES_COUNT = 11
+local FILE_MENU_FOOTER_LINES_COUNT = 9
+
+if not M.file_menu_show_guide then
+  FILE_MENU_FOOTER_LINES_COUNT = 0
+end
+
+local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10
 local FILE_MENU_HEIGHT = FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_FOOTER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT
 
 
@@ -370,13 +382,14 @@ function M.ShowVaultMenu()
              table.insert(display_lines, "")
         end
 
-        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_1)
-        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_2)
-        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_3)
-        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_4)
-        table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_5)
-
+        if M.show_guide then
+            table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
+            table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_1)
+            table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_2)
+            table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_3)
+            table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_4)
+            table.insert(display_lines, CONSTANT.VAULT_INSTRUCTIONS_5)
+        end
 
         -- Set buffer to modifiable before updating content
         vim.api.nvim_buf_set_option(main_menu_buf, 'modifiable', true)
@@ -496,13 +509,13 @@ function M.ShowVaultMenu()
     vim.opt.termguicolors = true
 
     -- Colors for highlight groups
-    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+    vim.api.nvim_set_hl(0, 'VaultMenu', {
         fg = config.main_menu.text,
         bg = config.main_menu.background,
         bold = true
     })
 
-    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+    vim.api.nvim_set_hl(0, 'VaultBorder', {
         fg = config.main_menu.text,
         bg = config.main_menu.background,
     })
@@ -526,8 +539,8 @@ function M.ShowVaultMenu()
         title_pos = 'center'
     })
 
-    -- Apply Fallout-style highlights
-    vim.api.nvim_win_set_option(main_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
+    -- Apply style highlights
+    vim.api.nvim_win_set_option(main_menu_win, "winhl", "Normal:VaultMenu,FloatBorder:VaultBorder")
 
     -- Set buffer options
     vim.api.nvim_buf_set_option(main_menu_buf, 'buftype', 'nofile')
@@ -977,7 +990,7 @@ function M.ShowFileMenu(vault_object)
         table.insert(display_lines, sort_and_path_display_line)
         table.insert(display_lines, string.rep("─", FILE_MENU_WIDTH))
 
-        -- Column widths (adjust if needed)
+        -- Column widths
         local col1 = math.floor(FILE_MENU_WIDTH * 0.7)
         local col2 = FILE_MENU_WIDTH - col1 - 1
         table.insert(display_lines, string.format("%-" .. col1 .. "s %-" .. col2 .. "s", "FILE NAME", "LAST UPDATED"))
@@ -998,13 +1011,16 @@ function M.ShowFileMenu(vault_object)
         end
 
         -- Footer
-        table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_1)
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_2)
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_3)
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_4)
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_5)
-        table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_6)
+
+        if M.file_menu_show_guide then
+            table.insert(display_lines, string.rep("─", MAIN_MENU_WIDTH))
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_1)
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_2)
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_3)
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_4)
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_5)
+            table.insert(display_lines, CONSTANT.FILE_INSTRUCTIONS_6)
+        end
 
         vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', true)
         vim.api.nvim_buf_set_lines(file_menu_buf, 0, -1, false, display_lines)
@@ -1024,7 +1040,7 @@ function M.ShowFileMenu(vault_object)
 
             for line_num = highlight_start_line_in_buffer, highlight_end_line_in_buffer do
                 if line_num >= FILE_MENU_HEADER_LINES_COUNT and line_num < FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT then
-                    vim.api.nvim_buf_add_highlight(file_menu_buf, highlight_ns_id, 'VaultSelected', line_num, 0, -1)
+                    vim.api.nvim_buf_add_highlight(file_menu_buf, highlight_ns_id, 'VaultFilesSelected', line_num, 0, -1)
                 end
             end
         end
@@ -1277,18 +1293,18 @@ function M.ShowFileMenu(vault_object)
 
 
     -- Colors for highlight groups
-    vim.api.nvim_set_hl(0, 'FalloutMenu', {
+    vim.api.nvim_set_hl(0, 'VaultFilesMenu', {
         fg = config.files_menu.text,
-        bg = config.main_menu.background,
+        bg = config.files_menu.background,
         bold = true
     })
 
-    vim.api.nvim_set_hl(0, 'FalloutBorder', {
+    vim.api.nvim_set_hl(0, 'VaultFilesBorder', {
         fg = config.files_menu.text,
-        bg = config.main_menu.background,
+        bg = config.files_menu.background,
     })
 
-    vim.api.nvim_set_hl(0, 'VaultSelected', {
+    vim.api.nvim_set_hl(0, 'VaultFilesSelected', {
       fg = config.files_menu.background,     -- Opposite of the normal background and foreground color
       bg = config.files_menu.text,
       bold = true
@@ -1312,8 +1328,8 @@ function M.ShowFileMenu(vault_object)
         title_pos = 'center'
     })
 
-    -- Apply Fallout-style highlights
-    vim.api.nvim_win_set_option(file_menu_win, "winhl", "Normal:FalloutMenu,FloatBorder:FalloutBorder")
+    -- Apply style highlights
+    vim.api.nvim_win_set_option(file_menu_win, "winhl", "Normal:VaultFilesMenu,FloatBorder:VaultFilesBorder")
 
     vim.api.nvim_buf_set_option(file_menu_buf, 'buftype', 'nofile')
     vim.api.nvim_buf_set_option(file_menu_buf, 'modifiable', false)
@@ -1393,13 +1409,13 @@ function M.EditFileNotes(vault_object, file_entry)
     end
 
     -- Colors for highlight groups
-    vim.api.nvim_set_hl(0, 'FalloutNotes', {
+    vim.api.nvim_set_hl(0, 'VaultNotes', {
         fg = config.notes.text,
         bg = config.main_menu.background,
         bold = true
     })
 
-    vim.api.nvim_set_hl(0, 'FalloutNotesBorder', {
+    vim.api.nvim_set_hl(0, 'VaultNotesBorder', {
         fg = config.notes.text,
         bg = config.main_menu.background,
     })
@@ -1421,8 +1437,8 @@ function M.EditFileNotes(vault_object, file_entry)
         title_pos = 'center'
     })
 
-    -- Apply Fallout-style highlights
-    vim.api.nvim_win_set_option(notes_editor_win, "winhl", "Normal:FalloutNotes,FloatBorder:FalloutNotesBorder")
+    -- Apply style highlights
+    vim.api.nvim_win_set_option(notes_editor_win, "winhl", "Normal:VaultNotes,FloatBorder:VaultNotesBorder")
 
 
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)

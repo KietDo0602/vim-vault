@@ -44,26 +44,27 @@ Add this to your `init.lua` file to get started:
 
 ```lua
 --Customize the styling of the main menu (default: black background, green text)
-vim.g.vim_vault_main_menu_width = 80 -- Default: 70
+vim.g.vim_vault_main_menu_guide = true   -- Show the key guide footer
+vim.g.vim_vault_main_menu_width = 80     -- Default: 70
 vim.g.vim_vault_main_menu_background = '#000000'
 vim.g.vim_vault_main_menu_text = '#FFFFFF'
 
 --Change the styling of the files menu
-vim.g.vim_vault_files_menu_width = 80 -- Default: 70
+vim.g.vim_vault_files_menu_guide = true  -- Show the key guide footer
+vim.g.vim_vault_files_menu_width = 80    -- Default: 70
 vim.g.vim_vault_files_menu_background = '#000000'
 vim.g.vim_vault_files_menu_text = '#FFFFFF'
 
 --Change the styling of the notes
-vim.g.vim_vault_notes_width = 80 -- Default: 70
 vim.g.vim_vault_notes_background = '#000000'
 vim.g.vim_vault_notes_text = '#FFFFFF'
 
 --Set the default sorting / display type
-vim.g.vim_vault_menu_sort = 0  -- Sort By: 0: Vault Number, 1: Last Updated, 2: Path
-vim.g.vim_vault_menu_display = 1  -- Display: 0: Smart Display (Difference between) 0: Display Folder Name Only, 1: Show Full Path
+vim.g.vim_vault_main_menu_sort = 0            -- Sort By: 0: Vault Number, 1: Last Updated, 2: Folder Path
+vim.g.vim_vault_main_menu_display = 0         -- Display: 0: Smart Display (Difference between) 1: Display Folder Name Only, 2: Show Full Path
 
-vim.g.vim_vault_files_sort = 1  -- Sort By: 0: File Name, 1: Last Updated
-vim.g.vim_vault_files_display = 0  -- Display: 0: Display File Name Only, 1: Show Full File Path
+vim.g.vim_vault_files_menu_sort = 1           -- Sort By: 0: File Name, 1: Last Updated
+vim.g.vim_vault_files_menu_display = 0        -- Display: 0: Smart Display, 1: Display File Name Only, 2: Show Full File Path
 
 ```
 
