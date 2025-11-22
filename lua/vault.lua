@@ -683,14 +683,26 @@ function M.ShowVaultMenu()
     end
 
     local function open_vault_from_menu()
-        if #M.vaults == 0 then vim.notify(CONSTANT.MSG_NO_VAULT, vim.log.levels.INFO); return end
+        if #M.vaults == 0 then
+            vim.notify(CONSTANT.MSG_NO_VAULT, vim.log.levels.INFO)
+            return
+        end
+
         local vault_to_open = M.vaults[current_selected_vault_idx]
         if not vault_to_open then return end
 
         local vault_path = vault_to_open.vaultPath
         M.last_selected_vault = vault_to_open
         close_all_menus()
+
+        -- Change Neovim's CWD
         vim.cmd('cd ' .. vim.fn.fnameescape(vault_path))
+
+        -- Update NERDTree root
+        if vim.fn.exists(':NERDTreeCWD') == 2 then
+            vim.cmd('NERDTreeCWD')
+        end
+
         vim.notify(CONSTANT.MSG_VAULT_OPEN .. vault_path)
     end
 
@@ -1411,13 +1423,13 @@ function M.EditFileNotes(vault_object, file_entry)
     -- Colors for highlight groups
     vim.api.nvim_set_hl(0, 'VaultNotes', {
         fg = config.notes.text,
-        bg = config.main_menu.background,
+        bg = config.notes.background,
         bold = true
     })
 
     vim.api.nvim_set_hl(0, 'VaultNotesBorder', {
         fg = config.notes.text,
-        bg = config.main_menu.background,
+        bg = config.notes.background,
     })
 
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
