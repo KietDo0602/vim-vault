@@ -1,6 +1,8 @@
-# ☢️🚀💥 VIM-VAULT — Vault-Tec's Official Vim Plugin
+# ☢️🚀💥 THE VAULT — Vault-Tec's Official NeoVim Plugin
 
-Welcome to **vim-vault**, the ultimate project management and file navigation plugin for Vim — inspired by the legendary Vault-Tec systems of the Fallout universe. Whether you're hacking terminals in the Wasteland or organizing your code deep in Vault 101, vim-vault keeps your workflow secure, efficient, and irradiated with productivity. 💾☢️
+Welcome to **THE VAULT**, the file navigation, project management and note taking plugin for NeoVim - inspired by the legendary Vault-Tec systems of the Fallout universe! 
+
+Whether you're hacking terminals in the Wasteland or organizing your code in Vault 11, The Vault keeps your workflow secure, efficient, and irradiated with productivity. 💾☢️
 
 ---
 
@@ -20,20 +22,20 @@ Use your favorite plugin manager:
 ### [vim-plug](https://github.com/junegunn/vim-plug)
 
 ```vim
-Plug 'kietdo0602/vim-vault'
+Plug 'kietdo0602/vault'
 ```
 
 ### [Vundle](https://github.com/VundleVim/Vundle.vim)
 
 ```vim
-Plugin 'kietdo0602/vim-vault'
+Plugin 'kietdo0602/vault'
 ```
 
 ### [Pathogen](https://github.com/tpope/vim-pathogen)
 
 ```bash
 cd ~/.vim/bundle
-git clone https://github.com/kietdo0602/vim-vault.git
+git clone https://github.com/kietdo0602/vault.git
 ```
 
 ---
@@ -111,7 +113,7 @@ vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap 
 
 ## 🙌 Contributing (Join the Resistance)
 
-Pull requests, bug reports, and feature suggestions are welcome! Whether you're a lone wanderer or part of a modding faction, your help keeps vim-vault thriving in the post-apocalyptic coding landscape. 💡🧑‍🔧
+Pull requests, bug reports, and feature suggestions are welcome! Whether you're a lone wanderer or part of a modding faction, your help keeps The Vault thriving in the post-apocalyptic coding landscape. 💡🧑‍🔧
 
 ---
 
@@ -124,13 +126,13 @@ No Rad-X required.
 
 ## 💬 Feedback
 
-If vim-vault makes your Vim experience feel like a Pip-Boy upgrade, let me know! If it feels more like a Deathclaw encounter… tell me anyway so I can patch it up. 😄🦎
+If The Vault makes your Vim experience feel like a Pip-Boy upgrade, let me know! If it feels more like a Deathclaw encounter… tell me anyway so I can patch it up. 😄🦎
 
 > “War never changes. But your Vim setup can.” — Vault-Tec
 
 ---
 
-## 🖼️ Bonus: ASCII Vault Boy
+## 🖼️ Beware, very strong enemy ahead!
 
 ```
        .-"      "-.
@@ -147,4 +149,3 @@ If vim-vault makes your Vim experience feel like a Pip-Boy upgrade, let me know!
 ```
 
 Stay safe out there, Overseer. Your terminal is your vault. 🧑‍💻🔒
-
