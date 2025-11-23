@@ -756,7 +756,7 @@ function M.ShowVaultMenu()
     -- Disable other movements within the menu buffer to prevent unintended actions
     local disabled_keys = {
       'l', '<Left>', '<Right>', 'w', 'n', 'b', 'e', '0', '$', '^',
-      '<C-u>', '<C-d>', '<C-b>', '<C-f>'
+      '<C-u>', '<C-d>', '<C-b>', '<C-f>', '<C-y>', '<C-e>',
     }
     for _, key in ipairs(disabled_keys) do
         vim.keymap.set('n', key, '<Nop>', opts)
@@ -1398,7 +1398,7 @@ function M.ShowFileMenu(vault_object)
     -- Disable other movements for file menu
     local disabled_keys_file_menu = {
         'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^',
-        '<C-u>', '<C-d>', '<C-b>', '<C-f>'
+        '<C-u>', '<C-d>', '<C-b>', '<C-f>', '<C-y>', '<C-e>',
     }
     for _, key in ipairs(disabled_keys_file_menu) do
         vim.keymap.set('n', key, '<Nop>', opts)
