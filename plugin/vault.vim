@@ -20,6 +20,7 @@ command! VaultCreate lua require'vault'.CreateVaultWithCwd()
 
 command! -nargs=? VaultFiles lua require'vault'.OpenVaultFilesMenu(<f-args>)
 command! VaultFileNext lua require'vault'.VaultFileNext()
+command! VaultFilePrev lua require'vault'.VaultFilePrev()
 command! VaultFileAdd lua require'vault'.AddCurrentFileToVault()
 command! VaultFileDelete lua require'vault'.RemoveCurrentFileFromVault()
 

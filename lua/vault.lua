@@ -1921,6 +1921,82 @@ function M.VaultFileNext()
     end
 end
 
+-- Go to the previous file in the selected vault
+function M.VaultFilePrev()
+    read_vault_data_into_M()
+    refresh_last_selected_vault_reference()
+
+    if not M.last_selected_vault then
+        vim.notify("No vault is currently selected. Please select a vault first.", vim.log.levels.WARN)
+        return
+    end
+
+    -- Re-point M.last_selected_vault to the current object in M.vaults after read_vault_data_into_M()
+    local current_vault_in_M_vaults = nil
+    if M.last_selected_vault then
+        for _, vault in ipairs(M.vaults) do
+            if vault.vaultNumber == M.last_selected_vault.vaultNumber then
+                current_vault_in_M_vaults = vault
+                break
+            end
+        end
+    end
+
+    if not current_vault_in_M_vaults then
+        vim.notify("Error: No valid vault selected or vault disappeared. Please select a vault first.", vim.log.levels.ERROR)
+        M.last_selected_vault = nil -- Clear stale reference
+        return
+    end
+    M.last_selected_vault = current_vault_in_M_vaults -- Re-point to the freshest object
+
+    local files_in_vault = M.last_selected_vault.files
+    if #files_in_vault == 0 then
+        vim.notify("No files in the current vault.", vim.log.levels.INFO)
+        return
+    end
+
+    helper.sort_files(files_in_vault, M.current_file_sort_order) -- Ensure sorted order for 'prev' logic
+
+    local current_file_path = vim.api.nvim_buf_get_name(0)
+    local current_relative_path = nil
+
+    local normalized_vault_path = helper.normalize_path(M.last_selected_vault.vaultPath)
+    if normalized_vault_path ~= "/" and normalized_vault_path:sub(-1) ~= "/" then
+        normalized_vault_path = normalized_vault_path .. "/"
+    end
+
+    -- Resolve current_file_path to its canonical absolute path for robust comparison
+    local resolved_current_file_path = vim.fn.resolve(current_file_path)
+
+    if resolved_current_file_path ~= "" and (helper.normalize_path(resolved_current_file_path):sub(1, #normalized_vault_path) == normalized_vault_path) then
+        current_relative_path = helper.normalize_path(resolved_current_file_path):sub(#normalized_vault_path + 1)
+        if current_relative_path:sub(1,1) == "/" then
+            current_relative_path = current_relative_path:sub(2)
+        end
+    end
+
+    local current_idx_in_list = -1
+    if current_relative_path then
+        for i, file_entry in ipairs(files_in_vault) do
+            if helper.normalize_path(file_entry.fileName) == helper.normalize_path(current_relative_path) then
+                current_idx_in_list = i
+                break
+            end
+        end
+    end
+
+    -- Wrap around: if at start or not found, go to last file
+    local prev_idx = (current_idx_in_list == -1 or current_idx_in_list == 1) and #files_in_vault or current_idx_in_list - 1
+    local prev_file_entry = files_in_vault[prev_idx]
+
+    if prev_file_entry then
+        -- Pass all 4 required parameters to open_file_entry
+        M.open_file_entry(M.last_selected_vault, prev_file_entry, prev_idx, files_in_vault)
+    else
+        vim.notify("Could not find previous file. Perhaps the vault file list is empty.", vim.log.levels.ERROR)
+    end
+end
+
 -- Remove the current file from the selected vault
 function M.RemoveCurrentFileFromVault()
     read_vault_data_into_M()

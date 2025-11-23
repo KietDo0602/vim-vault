@@ -84,6 +84,8 @@ vim.g.vim_vault_files_menu_display = 0        -- Display: 0: Smart Display, 1: D
 
 - `:VaultFiles` — Open Files Menu inside the selected Vault
 - `:VaultFileAdd` — Add current file to selected Vault
+- `:VaultFileNext` — Navigate to the next file in the selected Vault
+- `:VaultFilePrev` — Navigate to the previous file in the selected Vault
 - `:VaultFileDelete` — Delete current file from the selected Vault (if exists)
 
 - `:VaultNoteOpen` — Open Note of the current File.
@@ -99,6 +101,8 @@ vim.api.nvim_set_keymap('n', '<SPACE>vv', '<cmd>Vaults<cr>', { noremap = true, s
 vim.api.nvim_set_keymap('n', '<SPACE>vc', '<cmd>VaultCreate<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>ff', '<cmd>VaultFiles<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>fa', '<cmd>VaultFileAdd<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFileNext<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFilePrev<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>nn', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap = true, silent = true })
 ```
