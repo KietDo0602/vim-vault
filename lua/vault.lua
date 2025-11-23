@@ -714,7 +714,9 @@ function M.ShowVaultMenu()
     local opts = {buffer = main_menu_buf, nowait = true, silent = true}
 
     vim.keymap.set('n', 'j', function() move_main_menu_cursor(1) end, opts)
+    vim.keymap.set('n', 'j', function() move_main_menu_cursor(vim.v.count1) end, opts)
     vim.keymap.set('n', 'k', function() move_main_menu_cursor(-1) end, opts)
+    vim.keymap.set('n', 'k', function() move_main_menu_cursor(-vim.v.count1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_main_menu_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_main_menu_cursor(-1) end, opts)
     vim.keymap.set('n', 'gg', function() move_to_first_vault() end, opts)
@@ -752,7 +754,10 @@ function M.ShowVaultMenu()
     })
 
     -- Disable other movements within the menu buffer to prevent unintended actions
-    local disabled_keys = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^'}
+    local disabled_keys = {
+      'l', '<Left>', '<Right>', 'w', 'n', 'b', 'e', '0', '$', '^',
+      '<C-u>', '<C-d>', '<C-b>', '<C-f>'
+    }
     for _, key in ipairs(disabled_keys) do
         vim.keymap.set('n', key, '<Nop>', opts)
     end
@@ -1361,7 +1366,9 @@ function M.ShowFileMenu(vault_object)
     -- Set up key mappings for file menu
     local opts = {buffer = file_menu_buf, nowait = true, silent = true}
     vim.keymap.set('n', 'j', function() move_file_cursor(1) end, opts)
+    vim.keymap.set('n', 'j', function() move_file_cursor(vim.v.count1) end, opts)
     vim.keymap.set('n', 'k', function() move_file_cursor(-1) end, opts)
+    vim.keymap.set('n', 'k', function() move_file_cursor(-vim.v.count1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_file_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_file_cursor(-1) end, opts)
     vim.keymap.set('n', 'gg', move_to_first_file, opts)
@@ -1389,7 +1396,10 @@ function M.ShowFileMenu(vault_object)
 
 
     -- Disable other movements for file menu
-    local disabled_keys_file_menu = {'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^'}
+    local disabled_keys_file_menu = {
+        'l', '<Left>', '<Right>', 'w', 'b', 'e', '0', '$', '^',
+        '<C-u>', '<C-d>', '<C-b>', '<C-f>'
+    }
     for _, key in ipairs(disabled_keys_file_menu) do
         vim.keymap.set('n', key, '<Nop>', opts)
     end

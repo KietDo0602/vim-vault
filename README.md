@@ -72,6 +72,8 @@ vim.g.vim_vault_files_menu_display = 0        -- Display: 0: Smart Display, 1: D
 
 ```
 
+Don't worry, if you don't add this, all default settings will be used.
+
 ---
 
 ## 🧭 Usage (Survival Guide)
@@ -93,18 +95,20 @@ vim.g.vim_vault_files_menu_display = 0        -- Display: 0: Smart Display, 1: D
 - `:VaultNoteExport` — Export note of the current file
 
 
+
+This is my keybinds. Feel free to customize your own!
 ## 🗺️ Basic Mappings
 
 ```lua
 -- Mappings for Vim Vault
-vim.api.nvim_set_keymap('n', '<SPACE>vv', '<cmd>Vaults<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>vc', '<cmd>VaultCreate<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>ff', '<cmd>VaultFiles<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>fa', '<cmd>VaultFileAdd<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFileNext<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFilePrev<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>nn', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>vv', '<cmd>Vaults<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>vc', '<cmd>VaultCreate<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>ff', '<cmd>VaultFiles<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>fa', '<cmd>VaultFileAdd<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFileNext<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>fn', '<cmd>VaultFilePrev<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>nn', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = false })
+vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap = true, silent = false })
 ```
 ---
 
