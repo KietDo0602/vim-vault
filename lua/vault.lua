@@ -99,6 +99,10 @@ local FILE_MENU_SCROLLABLE_AREA_HEIGHT = 10
 local FILE_MENU_HEIGHT = FILE_MENU_HEADER_LINES_COUNT + FILE_MENU_FOOTER_LINES_COUNT + FILE_MENU_SCROLLABLE_AREA_HEIGHT
 
 
+local NOTES_WIDTH = config.notes.width
+local NOTES_HEIGHT = config.notes.height
+
+
 -- Helper to get filename and parent directory from a full path using standard Lua string functions
 local function get_file_and_dir_from_path(full_path)
     local normalized_path = helper.normalize_path(full_path)
@@ -1432,25 +1436,33 @@ function M.EditFileNotes(vault_object, file_entry)
         bg = config.notes.background,
     })
 
+    vim.api.nvim_set_hl(0, 'VaultNotesTitle', {
+        fg = config.notes.text,
+        bg = config.notes.background,
+        bold = true,
+    })
+
     notes_editor_buf = vim.api.nvim_create_buf(false, true)
 
     -- Ensure true color is enabled
     vim.opt.termguicolors = true
 
+    local notes_title = helper.base_name(file_entry.fileName)
+
     notes_editor_win = vim.api.nvim_open_win(notes_editor_buf, true, {
         relative = 'editor',
-        width = math.floor(vim.o.columns * 0.7),
-        height = math.floor(vim.o.lines * 0.6),
-        col = (vim.o.columns - math.floor(vim.o.columns * 0.7)) / 2,
-        row = (vim.o.lines - math.floor(vim.o.lines * 0.6)) / 2,
+        width = NOTES_WIDTH,
+        height = NOTES_HEIGHT,
+        col = (vim.o.columns - NOTES_WIDTH) / 2,
+        row = (vim.o.lines - NOTES_HEIGHT) / 2,
         style = 'minimal',
         border = 'double',
-        title = "",
+        title = notes_title,
         title_pos = 'center'
     })
 
     -- Apply style highlights
-    vim.api.nvim_win_set_option(notes_editor_win, "winhl", "Normal:VaultNotes,FloatBorder:VaultNotesBorder")
+    vim.api.nvim_win_set_option(notes_editor_win, "winhl", "Normal:VaultNotes,FloatBorder:VaultNotesBorder,FloatTitle:VaultNotesTitle")
 
 
     vim.api.nvim_buf_set_option(notes_editor_buf, 'modifiable', true)

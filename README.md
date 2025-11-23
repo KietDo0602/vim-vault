@@ -44,18 +44,20 @@ Add this to your `init.lua` file to get started:
 
 ```lua
 --Customize the styling of the main menu (default: black background, green text)
-vim.g.vim_vault_main_menu_guide = true   -- Show the key guide footer
+vim.g.vim_vault_main_menu_guide = true   -- Show the keymaps guide footer
 vim.g.vim_vault_main_menu_width = 80     -- Default: 70
 vim.g.vim_vault_main_menu_background = '#000000'
 vim.g.vim_vault_main_menu_text = '#FFFFFF'
 
 --Change the styling of the files menu
-vim.g.vim_vault_files_menu_guide = true  -- Show the key guide footer
+vim.g.vim_vault_files_menu_guide = true  -- Show the keymaps guide footer
 vim.g.vim_vault_files_menu_width = 80    -- Default: 70
 vim.g.vim_vault_files_menu_background = '#000000'
 vim.g.vim_vault_files_menu_text = '#FFFFFF'
 
 --Change the styling of the notes
+vim.g.vim_vault_notes_width = 80    -- Default: 70
+vim.g.vim_vault_notes_height = 40    -- Default: 30
 vim.g.vim_vault_notes_background = '#000000'
 vim.g.vim_vault_notes_text = '#FFFFFF'
 
@@ -95,7 +97,7 @@ vim.api.nvim_set_keymap('n', '<SPACE>vv', '<cmd>Vaults<cr>', { noremap = true, s
 vim.api.nvim_set_keymap('n', '<SPACE>vc', '<cmd>VaultCreate<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>ff', '<cmd>VaultFiles<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>fa', '<cmd>VaultFileAdd<cr>', { noremap = true, silent = true })
-vim.api.nvim_set_keymap('n', '<SPACE>no', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = true })
+vim.api.nvim_set_keymap('n', '<SPACE>nn', '<cmd>VaultNoteOpen<cr>', { noremap = true, silent = true })
 vim.api.nvim_set_keymap('n', '<SPACE>ne', '<cmd>VaultNoteExport<cr>', { noremap = true, silent = true })
 ```
 ---

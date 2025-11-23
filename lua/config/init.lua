@@ -8,6 +8,7 @@ local main_menu = {
   sort       = helper.validateNumber(vim.g.vim_vault_main_menu_sort) or 0,
   display    = helper.validateNumber(vim.g.vim_vault_main_menu_display) or 0,
 }
+
 local files_menu = {
   guide      = helper.validateBoolean(vim.g.vim_vault_files_menu_guide, true),
   width      = helper.validateMax(vim.g.vim_vault_files_menu_width, 70) or 70,
@@ -16,9 +17,12 @@ local files_menu = {
   sort       = helper.validateNumber(vim.g.vim_vault_files_menu_sort) or 0,
   display    = helper.validateNumber(vim.g.vim_vault_files_menu_display) or 0,
 }
+
 local notes = {
+  width      = helper.validateMax(vim.g.vim_vault_notes_width, 70) or 70,
+  height      = helper.validateMax(vim.g.vim_vault_notes_height, 30) or 30,
   background = helper.validateHexColor(vim.g.vim_vault_notes_background) or "#000000",
-  text       = helper.validateHexColor(vim.g.vim_vault_notes_text) or "#FFFFFF",
+  text       = helper.validateHexColor(vim.g.vim_vault_notes_text) or "#FFBF00",
 }
 
 return {

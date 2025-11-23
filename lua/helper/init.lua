@@ -98,6 +98,19 @@ function H.normalize_path(path)
     return result
 end
 
+-- Return only the last file or folder name from a path
+function H.base_name(path)
+    local normalized = H.normalize_path(path)
+
+    if not normalized or normalized == "" then
+        return ""
+    end
+
+    -- Extract the last component after the final slash
+    local name = normalized:match("([^/]+)$")
+    return name or normalized
+end
+
 -- Helper to truncate the middle of a long string to keep it exactly max_width
 local function truncate_middle(str, max_width)
     -- If input is not string or too short, return as is
