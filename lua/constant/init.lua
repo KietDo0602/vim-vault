@@ -3,8 +3,8 @@
 
 local CONSTANT = {}
 
--- Vim-Vault related
-CONSTANT.PROJECT_NAME = "Vim-Vault"
+-- Vault Title
+CONSTANT.PROJECT_NAME = "Vault"
 
 
 -- File Paths
