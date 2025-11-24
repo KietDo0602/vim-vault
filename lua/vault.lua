@@ -500,6 +500,64 @@ function M.ShowVaultMenu()
         end
     end
 
+    -- Jump to the vault in the middle of the scrollable area
+    local function move_main_menu_cursor_to_middle()
+        if #M.vaults == 0 then return end
+
+        -- Calculate the middle line of the scrollable area
+        local middle_line_idx = current_scroll_top_line_idx + math.floor(MAIN_MENU_SCROLLABLE_AREA_HEIGHT / 2)
+
+        -- Find the vault whose line range contains or is closest to that middle line
+        local closest_vault_idx = 1
+        local closest_distance = math.huge
+
+        for vault_idx, line_range in ipairs(vault_line_map) do
+            local start_line = line_range.start_line_idx
+            local end_line = line_range.end_line_idx
+
+            if middle_line_idx >= start_line and middle_line_idx <= end_line then
+                closest_vault_idx = vault_idx
+                break
+            else
+                local distance = math.min(math.abs(middle_line_idx - start_line), math.abs(middle_line_idx - end_line))
+                if distance < closest_distance then
+                    closest_distance = distance
+                    closest_vault_idx = vault_idx
+                end
+            end
+        end
+
+        -- Update selection
+        if closest_vault_idx ~= current_selected_vault_idx then
+            current_selected_vault_idx = closest_vault_idx
+            M.last_selected_vault = M.vaults[current_selected_vault_idx]
+
+            local selected_vault_line_range = vault_line_map[current_selected_vault_idx]
+            if not selected_vault_line_range then
+                current_selected_vault_idx = 0
+                current_scroll_top_line_idx = 0
+                M.last_selected_vault = nil
+                update_main_menu_display()
+                return
+            end
+
+            local selected_vault_start_line = selected_vault_line_range.start_line_idx
+            local selected_vault_end_line = selected_vault_line_range.end_line_idx
+
+            if selected_vault_start_line < current_scroll_top_line_idx then
+                current_scroll_top_line_idx = selected_vault_start_line
+            elseif selected_vault_end_line >= current_scroll_top_line_idx + MAIN_MENU_SCROLLABLE_AREA_HEIGHT then
+                current_scroll_top_line_idx = selected_vault_end_line - MAIN_MENU_SCROLLABLE_AREA_HEIGHT + 1
+            end
+
+            local max_scroll_top_line_idx = math.max(0, #all_vault_lines - MAIN_MENU_SCROLLABLE_AREA_HEIGHT)
+            current_scroll_top_line_idx = math.max(0, math.min(current_scroll_top_line_idx, max_scroll_top_line_idx))
+
+            update_main_menu_display()
+        end
+    end
+
+
     -- Refresh function (closes current window and re-opens menu to reflect changes)
     local function refresh_main_menu()
         close_all_menus()
@@ -719,6 +777,7 @@ function M.ShowVaultMenu()
     vim.keymap.set('n', 'k', function() move_main_menu_cursor(-vim.v.count1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_main_menu_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_main_menu_cursor(-1) end, opts)
+    vim.keymap.set('n', 'M', function() move_main_menu_cursor_to_middle() end, opts)
     vim.keymap.set('n', 'gg', function() move_to_first_vault() end, opts)
     vim.keymap.set('n', 'G', function() move_to_last_vault() end, opts)
     vim.keymap.set('n', 'c', create_new_vault_interactive, opts)
@@ -1119,6 +1178,56 @@ function M.ShowFileMenu(vault_object)
         end
     end
 
+    -- Jump to the file in the middle of the scrollable area
+    local function move_file_cursor_to_middle()
+        if #files_in_vault == 0 then return end
+
+        -- Calculate the middle line of the scrollable area
+        local middle_line_idx = current_file_scroll_top_line_idx + math.floor(FILE_MENU_SCROLLABLE_AREA_HEIGHT / 2)
+
+        -- Find the file whose line range contains or is closest to that middle line
+        local closest_file_idx = 1
+        local closest_distance = math.huge
+
+        for file_idx, line_range in ipairs(file_line_map) do
+            local start_line = line_range.start_line_idx
+            local end_line = line_range.end_line_idx
+
+            if middle_line_idx >= start_line and middle_line_idx <= end_line then
+                closest_file_idx = file_idx
+                break
+            else
+                -- If not inside, measure distance to nearest boundary
+                local distance = math.min(math.abs(middle_line_idx - start_line), math.abs(middle_line_idx - end_line))
+                if distance < closest_distance then
+                    closest_distance = distance
+                    closest_file_idx = file_idx
+                end
+            end
+        end
+
+        -- Update selection
+        if closest_file_idx ~= current_selected_file_idx then
+            current_selected_file_idx = closest_file_idx
+
+            local selected_file_line_range = file_line_map[current_selected_file_idx]
+            local selected_file_start_line = selected_file_line_range.start_line_idx
+            local selected_file_end_line = selected_file_line_range.end_line_idx
+
+            if selected_file_start_line < current_file_scroll_top_line_idx then
+                current_file_scroll_top_line_idx = selected_file_start_line
+            elseif selected_file_end_line >= current_file_scroll_top_line_idx + FILE_MENU_SCROLLABLE_AREA_HEIGHT then
+                current_file_scroll_top_line_idx = selected_file_end_line - FILE_MENU_SCROLLABLE_AREA_HEIGHT + 1
+            end
+
+            local max_scroll_top_line_idx = math.max(0, #all_file_display_lines - FILE_MENU_SCROLLABLE_AREA_HEIGHT)
+            current_file_scroll_top_line_idx = math.max(0, math.min(current_file_scroll_top_line_idx, max_scroll_top_line_idx))
+
+            update_file_menu_display()
+        end
+    end
+
+
     local function refresh_file_menu()
         read_vault_data_into_M()
         refresh_last_selected_vault_reference()
@@ -1357,6 +1466,23 @@ function M.ShowFileMenu(vault_object)
 
     -- Initial display
     if #files_in_vault > 0 then
+        -- Generate the display info first to get the line map
+        all_file_display_lines, file_line_map = generate_full_file_display_info()
+        local selected_file_line_range = file_line_map[current_selected_file_idx]
+        if selected_file_line_range then
+            local selected_file_start_line = selected_file_line_range.start_line_idx
+            local selected_file_end_line = selected_file_line_range.end_line_idx
+
+            -- Adjust scroll to ensure selected file is visible
+            if selected_file_start_line < current_file_scroll_top_line_idx then
+                current_file_scroll_top_line_idx = selected_file_start_line
+            elseif selected_file_end_line >= current_file_scroll_top_line_idx + FILE_MENU_SCROLLABLE_AREA_HEIGHT then
+                current_file_scroll_top_line_idx = selected_file_end_line - FILE_MENU_SCROLLABLE_AREA_HEIGHT + 1
+            end
+
+            local max_scroll_top_line_idx = math.max(0, #all_file_display_lines - FILE_MENU_SCROLLABLE_AREA_HEIGHT)
+            current_file_scroll_top_line_idx = math.max(0, math.min(current_file_scroll_top_line_idx, max_scroll_top_line_idx))
+        end
     else
         current_selected_file_idx = 0
         current_file_scroll_top_line_idx = 0
@@ -1371,6 +1497,7 @@ function M.ShowFileMenu(vault_object)
     vim.keymap.set('n', 'k', function() move_file_cursor(-vim.v.count1) end, opts)
     vim.keymap.set('n', '<Down>', function() move_file_cursor(1) end, opts)
     vim.keymap.set('n', '<Up>', function() move_file_cursor(-1) end, opts)
+    vim.keymap.set('n', 'M', function() move_file_cursor_to_middle() end, opts)
     vim.keymap.set('n', 'gg', move_to_first_file, opts)
     vim.keymap.set('n', 'G', move_to_last_file, opts)
     vim.keymap.set('n', 'c', create_file_entry, opts)
