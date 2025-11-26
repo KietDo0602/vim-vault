@@ -1318,11 +1318,6 @@ function M.ShowFileMenu(vault_object)
                     return
                 end
 
-                if vim.fn.filereadable(new_full_path) == 1 or vim.fn.isdirectory(new_full_path) == 1 then
-                    vim.notify("Error: Target file/directory already exists: " .. new_full_path, vim.log.levels.ERROR)
-                    return
-                end
-
                 local new_parent_dir, _ = get_file_and_dir_from_path(new_full_path)
                 if vim.fn.isdirectory(new_parent_dir) == 0 then
                      local confirm_create_dir = vim.fn.confirm("Parent directory '" .. new_parent_dir .. "' does not exist. Create it?", "&Yes\n&No")
@@ -1334,18 +1329,22 @@ function M.ShowFileMenu(vault_object)
                     end
                 end
 
-                local success, err = pcall(vim.cmd, 'silent !mv ' .. vim.fn.fnameescape(old_full_path) .. ' ' .. vim.fn.fnameescape(new_full_path))
-                if not success then
-                    vim.notify("Error renaming file on disk: " .. err, vim.log.levels.ERROR)
-                    return
-                end
-
                 file_to_modify.fileName = new_relative_path
                 file_to_modify.lastUpdated = os.time()
                 file_to_modify.line = file_to_modify.line or 1
                 file_to_modify.col = file_to_modify.col or 0
                 vault_object.lastUpdated = os.time()
                 vault_object.lastSelectedFile = file_to_modify.fileName
+
+                for i, file in ipairs(vault_object.files) do
+                    if file.fileName == old_relative_path then
+                        vault_object.files[i] = file_to_modify
+                        break
+                    end
+                end
+
+                -- Notify user which file have been renamed
+                vim.notify("File modified: '" .. old_relative_path .. "' → '" .. new_relative_path .. "'", vim.log.levels.INFO)
 
                 if save_vault_data() then
                     refresh_file_menu()
